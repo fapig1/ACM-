@@ -1,5 +1,11 @@
 #include <bits/stdc++.h>
 using namespace std;
+//注意所有有关vector数组都不可开过大如 n+5，必须是有多少点n就是多少
+//注意所有有关vector数组都不可开过大如 n+5，必须是有多少点n就是多少
+//注意所有有关vector数组都不可开过大如 n+5，必须是有多少点n就是多少
+//注意所有有关vector数组都不可开过大如 n+5，必须是有多少点n就是多少
+//注意所有有关vector数组都不可开过大如 n+5，必须是有多少点n就是多少
+//注意所有有关vector数组都不可开过大如 n+5，必须是有多少点n就是多少
 
 const double PI = acos(-1), eps = 1e-9;
 
