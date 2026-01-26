@@ -1359,101 +1359,100 @@ int sgn(double x) {
     return x < 0 ? -1 : 1;
 }
 
-struct Point{
+struct Pt{
     double x, y;
-    Point(double x = 0.0, double y = 0.0) : x(x), y(y) {}
+    Pt(double x = 0.0, double y = 0.0) : x(x), y(y) {}
     
-    Point operator- (const Point& b) const {return Point(x - b.x, y - b.y);}
+    Pt operator- (const Pt& b) const {return Pt(x - b.x, y - b.y);}
 
-    Point operator+ (const Point& b) const {return Point(x + b.x, y + b.y);}
+    Pt operator+ (const Pt& b) const {return Pt(x + b.x, y + b.y);}
 
-    double operator% (const Point& b) const {return x * b.y - y * b.x;}
+    double operator% (const Pt& b) const {return x * b.y - y * b.x;}
 
-    Point operator* (const double b) const {return Point(x * b, y * b);}
+    Pt operator* (const double b) const {return Pt(x * b, y * b);}
 
-    double operator* (const Point& b) const {return x * b.x + y * b.y;}
+    double operator* (const Pt& b) const {return x * b.x + y * b.y;}
 
-    Point operator/ (const double b) const {return Point(x / b, y / b);}
+    Pt operator/ (const double b) const {return Pt(x / b, y / b);}
 
-    bool operator< (const Point& b) const {return x < b.x || (x == b.x && y < b.y);}
+    bool operator< (const Pt& b) const {return x < b.x || (x == b.x && y < b.y);}
 
-    bool operator== (const Point& b) const {return sgn(x - b.x) == 0 && sgn(y - b.y) == 0;}
+    bool operator== (const Pt& b) const {return sgn(x - b.x) == 0 && sgn(y - b.y) == 0;}
 
-    bool operator!= (const Point& b) const {return sgn(x - b.x) != 0 || sgn(y - b.y) != 0;}
+    bool operator!= (const Pt& b) const {return sgn(x - b.x) != 0 || sgn(y - b.y) != 0;}
 };
 
-double dis(Point a){
+double dis(Pt a){
     return sqrt(a * a);
 }
 
-double ddis(Point a){
+double ddis(Pt a){
     return a * a;
 }
 
-double Angle(Point a, Point b){
+double Angle(Pt a, Pt b){
     return acos(a * b / dis(a) / dis(b));
 }
+
 //在直线的哪边
 // 点在直线上, 返回 0 (三点共线)
 // 点在直线的逆时针方向, 返回 1
 // 点在直线的顺时针方向, 返回 -1
 //直线ab, 点c
-int Cross(Point a, Point b, Point c){
+int Cross(Pt a, Pt b, Pt c){
     return sgn((b - a) % (c - a));
 }
 
 
-double cross(Point a, Point b, Point c){
+double cross(Pt a, Pt b, Pt c){
     return (b - a) % (c - a);
 }
 
-
-
 struct Line{
-    Point s, e;
+    Pt s, e;
     Line(){}
-    Line(Point x, Point y): s(x), e(y) {}
+    Line(Pt x, Pt y): s(x), e(y) {}
 };
 
-int Cross(Point c, Line l){
-    Point a = l.s, b = l.e;
+int Cross(Pt c, Line l){
+    Pt a = l.s, b = l.e;
     return sgn((b - a) % (c - a));
 }
 //三点共线
-bool In_one_line(Point a, Point b, Point c){
+bool In_one_line(Pt a, Pt b, Pt c){
     return !sgn((b - a) % (c - a));
 }
 //点到直线距离
-double dist_ptl(Point p, Point a, Point b){
-    Point v1 = p - a, v2 = b - a;
+double dist_ptl(Pt p, Pt a, Pt b){
+    Pt v1 = p - a, v2 = b - a;
     return fabs((v1 % v2) / dis(v2));
 }
 //点到线段距离
-double dist_pts(Point p, Point a, Point b){
+double dist_pts(Pt p, Pt a, Pt b){
     if(a == b) return dis(p - a);
-    Point v1 = b - a, v2 = p - a, v3 = p - b;
+    Pt v1 = b - a, v2 = p - a, v3 = p - b;
     if(sgn(v1 * v2) < 0) return dis(p - a);
     if(sgn(v1 * v3) > 0) return dis(p - b);
     return fabs((v1 % v2) / dis(v1));
 }
 //点在线段上
-bool OnSegment(Point p, Point a, Point b){
-    Point pa = a - p, pb = b - p;
+bool OnSegment(Pt p, Pt a, Pt b){
+    Pt pa = a - p, pb = b - p;
     return sgn(pa % pb) == 0 && sgn(pa * pb) <= 0;
 }
 //直线与线段相交(线段ab,直线cd)
-bool Intersect_line_seg(Point a, Point b, Point c, Point d){
+bool Intersect_line_seg(Pt a, Pt b, Pt c, Pt d){
     return Cross(a, b, c) * Cross(a, b, d) <= 0;
 }
 //线段与线段相交
-bool Intersect_seg(Point a, Point b, Point c, Point d){
+bool Intersect_seg(Pt a, Pt b, Pt c, Pt d){
     if (OnSegment(a, c, d) || OnSegment(b, c, d) || OnSegment(c, a, b) || OnSegment(d, a, b)) return 1;
     if (Cross(a, b, c) * Cross(a, b, d) >= 0) return 0;
     if (Cross(c, d, a) * Cross(c, d, b) >= 0) return 0;
     return 1;
 }
 //线段到线段距离
-double dist_sts(Point a, Point b, Point c, Point d){
+double dist_sts(Pt a, Pt b, Pt c, Pt d){
     if(Intersect_seg(a, b, c, d)){
         return 0.0;
     }
@@ -1469,22 +1468,22 @@ bool Line_parallel(Line A, Line B){
     return sgn((A.s - A.e) % (B.s - B.e)) == 0;
 }
 //直线交点
-Point Inter_Line_Point(Point a, Point b, Point c, Point d){
-    Point u = b - a, v = d - c;
+Pt Inter_Line_Pt(Pt a, Pt b, Pt c, Pt d){
+    Pt u = b - a, v = d - c;
     double t = ((a - c) % v) / (v % u);
     return a + u * t;
 }
 
 //  ------ 多边形 -------
 // 三角形面积
-double Triangle_area(Point A, Point B, Point C){
+double Triangle_area(Pt A, Pt B, Pt C){
     return fabs((B - A) % (C - A)) / 2;
 }
 //凸多边形面积
 // 因为叉积求得的三角形面积是有向的, 在外面的面积可以正负抵消掉
 // 所以能够求任意多边形面积(凸, !凸)
 // p[]下标从 0 开始, 长度为 n
-double area(vector<Point>& p, int n){
+double area(vector<Pt>& p, int n){
     double S = 0;
     for(int i = 1; i <= n - 2; i++){
         S += (p[i] - p[0]) % (p[i + 1] - p[0]);
@@ -1500,10 +1499,10 @@ double area(vector<Point>& p, int n){
 // 点在多边形外, 返回 0
 
 // p[] 的下标从 0 开始, 长度为 n
-int InPolygon(Point P, vector<Point>& p, int n) {
+int InPolygon(Pt P, vector<Pt>& p, int n) {
     bool flag = false;		
     for (int i = 0, j = n - 1; i < n; j = i++) {
-        Point p1 = p[i], p2 = p[j];
+        Pt p1 = p[i], p2 = p[j];
         if (OnSegment(P, p1, p2)) return -1;
         if (sgn(P.y - p1.y) > 0 == sgn(P.y - p2.y) > 0) continue;
         if (sgn((P.y - p1.y) * (p1.x - p2.x) / (p1.y - p2.y) + p1.x - P.x) > 0) 
@@ -1512,7 +1511,7 @@ int InPolygon(Point P, vector<Point>& p, int n) {
     return flag;
 }
 //是否为凸多边形
-bool Is_contex(vector<Point>& p, int n){
+bool Is_contex(vector<Pt>& p, int n){
     bool s[3] = {0, 0, 0};
     for (int i = 0, j = n - 1, k = n - 2; i < n; k = j, j = i++) {
         int cnt = sgn((p[i] - p[j]) % (p[k] - p[j])) + 1;
@@ -1523,15 +1522,15 @@ bool Is_contex(vector<Point>& p, int n){
 }
 // ------ 圆 -------
 struct Circle{
-    Point o;
+    Pt o;
     double r;
-    Circle(Point o = Point(), double r = 0) : o(o), r(r) {}
+    Circle(Pt o = Pt(), double r = 0) : o(o), r(r) {}
 
     double S(){return PI * r * r;}
     double C(){return PI * 2 * r;}
 };
 //扇形面积
-double SectorArea(Point A, Point B, double R){
+double SectorArea(Pt A, Pt B, double R){
     double angle = Angle(A, B);
     if(sgn(A % B) < 0) angle = -angle;
     return R * R * angle / 2;
@@ -1540,7 +1539,7 @@ double SectorArea(Point A, Point B, double R){
 // 点在圆上, 返回 0
 // 点在圆外, 返回 -1
 // 点在圆内, 返回 1
-int PWC(Point p, Circle c){
+int PWC(Pt p, Circle c){
     double d = dis(p - c.o);
     if(sgn(d - c.r) == 0) return 0;
     if(sgn(d - c.r) > 0) return -1;
@@ -1550,7 +1549,7 @@ int PWC(Point p, Circle c){
 // 相切, 返回 0
 // 相交, 返回 1
 // 相离, 返回 -1
-int LWC(Point A, Point B, Circle c) {
+int LWC(Pt A, Pt B, Circle c) {
     double d = dist_ptl(c.o, A, B);
     if (sgn(d - c.r) == 0) return 0;
     if (sgn(d - c.r) > 0) return -1;
@@ -1558,14 +1557,14 @@ int LWC(Point A, Point B, Circle c) {
 }
 
 //直线和圆的交点
-pair<Point, Point> Intersection_line_circle(Point A, Point B, Circle c) {
-    Point AB = B - A;
-    Point pr = A + AB * ((c.o - A) * AB / (AB * AB));
+pair<Pt, Pt> Intersection_line_circle(Pt A, Pt B, Circle c) {
+    Pt AB = B - A;
+    Pt pr = A + AB * ((c.o - A) * AB / (AB * AB));
     double base = sqrt(c.r * c.r - ((pr - c.o) * (pr - c.o)));
     
     if (sgn(base) == 0) return make_pair(pr, pr);
 
-    Point e = AB / sqrt(AB * AB);
+    Pt e = AB / sqrt(AB * AB);
     return make_pair(pr + e * base, pr - e * base);
 }
 //圆与圆的位置关系
@@ -1594,53 +1593,53 @@ int Circle_with_circle(Circle A, Circle B) {
 // 相切, 返回两个一样的相切点
 
 // 要先判断是否相交或相切再调用
-pair<Point, Point> Intersection_circle_circle(Circle A, Circle B) {
-    Point AB = B.o - A.o;
+pair<Pt, Pt> Intersection_circle_circle(Circle A, Circle B) {
+    Pt AB = B.o - A.o;
     double d = dis(AB);
     double a = acos((A.r * A.r + d * d - B.r * B.r) / (2.0 * A.r * d));
     double t = atan2(AB.y, AB.x);
-    Point x(A.r * cos(t + a), A.r * sin(t + a));
-    Point y(A.r * cos(t - a), A.r * sin(t - a));
+    Pt x(A.r * cos(t + a), A.r * sin(t + a));
+    Pt y(A.r * cos(t - a), A.r * sin(t - a));
     return make_pair(A.o + x, A.o + y);
 }
 //求圆外一点对圆的两个切点
-pair<Point, Point> TangentPoint_point_circle(Point p, Circle c) {
+pair<Pt, Pt> TangentPt_Pt_circle(Pt p, Circle c) {
     double d = dis(p - c.o);
     double l = sqrt(d * d - c.r * c.r);
-    Point e = (c.o - p) / d;
+    Pt e = (c.o - p) / d;
     double angle = asin(c.r / d);
 
-    Point t1(sin(angle), cos(angle));
-    Point t2(sin(-angle), cos(-angle));
-    Point e1(e % t1, e * t1);
-    Point e2(e % t2, e * t2);
+    Pt t1(sin(angle), cos(angle));
+    Pt t2(sin(-angle), cos(-angle));
+    Pt e1(e % t1, e * t1);
+    Pt e2(e % t2, e * t2);
     e1 = e1 * l + p;
     e2 = e2 * l + p;
     return make_pair(e1, e2);
 }
 
 //求三角形外接圆
-Circle get_circumcircle(Point A, Point B, Point C) {
+Circle get_circumcircle(Pt A, Pt B, Pt C) {
     double Bx = B.x - A.x, By = B.y - A.y;
     double Cx = C.x - A.x, Cy = C.y - A.y;
     double D = 2 * (Bx * Cy - By * Cx);
 
     double x = (Cy * (Bx * Bx + By * By) - By * (Cx * Cx + Cy * Cy)) / D + A.x;
     double y = (Bx * (Cx * Cx + Cy * Cy) - Cx * (Bx * Bx + By * By)) / D + A.y;
-    Point P(x, y);
+    Pt P(x, y);
     return Circle(P, dis(A - P));
 }
 //三角形内切圆
-Circle get_incircle(Point A, Point B, Point C) {
+Circle get_incircle(Pt A, Pt B, Pt C) {
     double a = dis(B - C);
     double b = dis(A - C);
     double c = dis(A - B);
-    Point p = (A * a + B * b + C * c) / (a + b + c);
+    Pt p = (A * a + B * b + C * c) / (a + b + c);
     return Circle(p, dist_ptl(p, A, B));
 }
 // 要保证传入的点是整点
 //线段上的整点个数
-int IntegerPoint_on_seg(Point A, Point B) {
+int IntegerPt_on_seg(Pt A, Pt B) {
     int x = abs(A.x - B.x);
     int y = abs(A.y - B.y);
     if (x == 0 || y == 0) return 1;
@@ -1651,7 +1650,7 @@ int IntegerPoint_on_seg(Point A, Point B) {
 // 点需要是顺时针(逆时针)给出
 
 // p[] 下标从 0 开始, 长度为 n
-int IntegerPoint_on_polygon(vector<Point>& p, int n) {
+int IntegerPt_on_polygon(vector<Pt>& p, int n) {
     int res = 0;
     for (int i = 0, j = n - 1; i < n; j = i++) {
         int x = abs(p[i].x - p[j].x);
@@ -1661,29 +1660,31 @@ int IntegerPoint_on_polygon(vector<Point>& p, int n) {
     return res;
 }
 // 返回不包括边界的, 多边形**内**整点个数
-int IntegerPoint_in_polygon(vector<Point>& p, int n) {
+int IntegerPt_in_polygon(vector<Pt>& p, int n) {
     double A = area(p, n);
-    double B = IntegerPoint_on_polygon(p, n);
+    double B = IntegerPt_on_polygon(p, n);
     return A - B / 2 + 1;
 }
 //级角排序
-void polarSort(vector<Point>& points, const Point& center) {
-    sort(points.begin(), points.end(), [&center](const Point& a, const Point& b) {
-        double angleA = atan2(a.y - center.y, a.x - center.x);
-        double angleB = atan2(b.y - center.y, b.x - center.x);
-        if (fabs(angleA - angleB) < 1e-9) { // 极角非常接近时，按距离排序
-            double distA = hypot(a.x - center.x, a.y - center.y);
-            double distB = hypot(b.x - center.x, b.y - center.y);
+void polarSort(vector<Pt>& Pts, const Pt& center){
+    sort(Pts.begin(), Pts.end(), [&center](const Pt& a, const Pt& b) {
+        Pt va = a - center;
+        Pt vb = b - center;
+        double cross = va % vb;
+        
+        if (fabs(cross) < eps) {
+            double distA = va * va;
+            double distB = vb * vb;
             return distA < distB;
         }
-        return angleA < angleB;
+        return cross > 0; 
     });
 }
 
 //凸包算法
-vector<Point> Andrew(vector<Point>& p, int n){
+vector<Pt> Andrew(vector<Pt>& p, int n){
     sort(p.begin(), p.end());
-    vector<Point> ans;
+    vector<Pt> ans;
     for(int i = 0; i < n; i++){
         while(ans.size() >= 2 && Cross(ans[ans.size() - 2], ans.back(), p[i]) <= 0){
             ans.pop_back();
@@ -1713,7 +1714,7 @@ int main(){
 
     int n, q;
     cin >> n;
-    vector<Point> p(n);
+    vector<Pt> p(n);
     for(int i = 0; i < n; i++){
         cin >> p[i].x >> p[i].y;
     }
@@ -1722,14 +1723,14 @@ int main(){
     while(q--){
         Line l;
         cin >> l.s.x >> l.s.y >> l.e.x >> l.e.y;
-        vector<Point> P;
+        vector<Pt> P;
         for(int i = 0; i < n; i++){
             if(Cross(p[i], l) > 0) P.push_back(p[i]);
         }
 
         for(int i = 0; i < n; i++){
             if(Intersect_line_seg(p[i], p[(i + 1) % n], l.s, l.e)){
-                P.push_back(Inter_Line_Point(p[i], p[(i + 1) % n], l.s, l.e));
+                P.push_back(Inter_Line_Pt(p[i], p[(i + 1) % n], l.s, l.e));
             }
         }
 
@@ -1744,6 +1745,7 @@ int main(){
     
     return 0;
 }
+
 ```
 
 
