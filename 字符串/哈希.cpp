@@ -17,9 +17,7 @@ struct StringHash {
         if (is_initialized) return;
         is_initialized = true;
         
-        // 使用时间戳生成随机基数，防止被 Hack
-        mt19937 rng(chrono::steady_clock::now().time_since_epoch().count());
-        base = uniform_int_distribution<int>(300, 1000000)(rng);
+        base = 277;
         
         mod1 = 1e9 + 7;
         mod2 = 1e9 + 9; 
