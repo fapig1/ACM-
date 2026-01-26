@@ -2,6 +2,7 @@
 #include "../数据结构/线段树.cpp"
 using namespace std;
 
+//记得把数据结构里面的线段树一起复制过来！！！
 //树链剖分
 struct HLD{
     int n, timer;
