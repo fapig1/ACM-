@@ -2,24 +2,10 @@
 using namespace std;
 #define int long long
 
-//欧拉筛
+
 const int mod = 1e9 + 7;
 const int maxn = 2e5;
-vector<int> primes;
 
-void init(){
-    vector<bool> nop(maxn + 5);
-    nop[0] = nop[1] = true;
-    for(int i = 2; i <= maxn; i++){
-        if(!nop[i]){
-            primes.push_back(i);
-            if(i > sqrt(maxn)) continue;
-            for(int j = i * i; j <= maxn; j++){
-                nop[j] = true;
-            }
-        }
-    }
-}
 
 //模逆元 排列数
 vector<int> fac(maxn + 5), inv(maxn + 5);

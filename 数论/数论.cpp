@@ -1,7 +1,67 @@
 #include <bits/stdc++.h>
 using namespace std;
 #define int long long
-const int MOD = 1e9 + 7;
+
+//欧拉筛
+const int mod = 1e9 + 7;
+const int maxn = 1e6;
+vector<int> primes;
+//欧拉筛 同时 预处理最小质因数 与 目标数分解质因数
+
+int min_primes[maxn + 5];
+void init(){
+    for(int i = 2; i <= maxn; i++){
+        if(!min_primes[i]){
+            min_primes[i] = i;
+            primes.push_back(i);
+        }
+        for(int p : primes){
+            if(p > min_primes[i] || i * p > maxn) break;
+            min_primes[i * p] = p;
+        }
+    }
+}
+//分解质因数
+vector<int> getPrimes(int x){
+    vector<int> res;
+    while(x > 1){
+        int p = min_primes[x];
+        res.push_back(p);
+        while(x % p == 0) x /= p;
+    }
+    return res;
+}
+//分解质因数带次数（幂）{p, cnt}
+vector<pair<int,int>> getPrimesCnt(int x){
+    vector<pair<int,int>> res;
+    while(x > 1){
+        int p = min_primes[x];
+        int cnt = 0;
+        while(x % p == 0){
+            x /= p;
+            cnt++;
+        }
+        res.push_back({p, cnt});
+    }
+    return res;
+}
+
+
+// 旧欧拉筛单独函数
+// void init(){
+//     vector<bool> nop(maxn + 5);
+//     nop[0] = nop[1] = true;
+//     for(int i = 2; i <= maxn; i++){
+//         if(!nop[i]){
+//             primes.push_back(i);
+//             if(i > sqrt(maxn)) continue;
+//             for(int j = i * i; j <= maxn; j++){
+//                 nop[j] = true;
+//             }
+//         }
+//     }
+// }
+
 
 int ksm(int x, int a, int m){
     int ans = 1;
@@ -118,7 +178,7 @@ void dirichlet_power(const vector<int>& f, vector<int>& res, int n, int k) {
             // 计算res = res * base
             for (int i = 1; i <= n; i++) {
                 for (int j = 1; i * j <= n; j++) {
-                    new_res[i * j] = (new_res[i * j] + res[i] * base[j]) % MOD;
+                    new_res[i * j] = (new_res[i * j] + res[i] * base[j]) % mod;
                 }
             }
             res = new_res;
@@ -128,7 +188,7 @@ void dirichlet_power(const vector<int>& f, vector<int>& res, int n, int k) {
         vector<int> new_base(n + 1, 0);
         for (int i = 1; i <= n; i++) {
             for (int j = 1; i * j <= n; j++) {
-                new_base[i * j] = (new_base[i * j] + base[i] * base[j]) % MOD;
+                new_base[i * j] = (new_base[i * j] + base[i] * base[j]) % mod;
             }
         }
         base = new_base;
