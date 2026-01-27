@@ -26,7 +26,7 @@ struct AC {
     int ans[SIZE];        // 存储每个模式串的最终匹配次数
     int pidx;             // 模式串编号计数器
     
-    AC() {
+    void init(){
         tot = pidx = 0;
         tr[0].init();
     }
@@ -115,6 +115,7 @@ int idx[N];               // 存储每个模式串的编号
 int main() {
     int n;
     cin>>n;
+    ac.init();
     // 读入模式串
     for (int i = 1; i <= n; i++) {
         string s;
