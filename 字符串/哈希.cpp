@@ -50,3 +50,20 @@ struct StringHash {
         return {res1, res2};
     }
 };
+/*
+    使用示例
+    string s1;
+    string s2;
+    StringHash hash1(s1);
+    StringHash hash2(s2);
+
+    pair<int,int> get1=hash1.get(1,2);
+    pair<int,int> get2=hash2.get(5,6);
+
+    //判断字符串s1的[1,2]与字符串s2的[5,6]是否完全匹配
+    if(get1.first==get2.first&&get1.second==get2.second){
+        cout<<"Yes\n";
+    }else{
+        cout<<"No\n";
+    }
+*/
