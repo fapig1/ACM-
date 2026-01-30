@@ -31,10 +31,10 @@ struct AC {
         tr[0].init();
     }
 
-    // 参数：模式串s（下标从1开始），模式串编号的引用
+    // 参数：模式串s(0-base)，模式串编号的引用
     void insert(string s, int &idx) {
         int u = 0;
-        for (int i = 1; s[i]; i++) {
+        for (int i = 0; s[i]; i++) {
             int c = s[i] - 'a';
             if (!tr[u].son[c]) {
                 tr[u].son[c] = ++tot;
@@ -77,7 +77,7 @@ struct AC {
     //下标由1开始
     void query(string t) {
         int u = 0;
-        for (int i = 1; t[i]; i++) {
+        for (int i = 0; t[i]; i++) {
             int c = t[i] - 'a';
             u = tr[u].son[c];
             tr[u].ans++;
@@ -119,8 +119,7 @@ int main() {
     // 读入模式串
     for (int i = 1; i <= n; i++) {
         string s;
-        cin>>s;
-        s=' '+s;                     // 字符串下标从1开始
+        cin>>s;                   // 字符串下标从1开始
         ac.insert(s, idx[i]);        // 插入模式串，获取编号
     }
     
@@ -128,7 +127,6 @@ int main() {
     
     string s;
     cin>>s;
-    s=' '+s;
     ac.query(s);
     // 拓扑排序传播计数(此处可以查询多个文本串)
     ac.topu();
@@ -141,3 +139,55 @@ int main() {
     return 0;
 }
 */
+
+const int N = 2e4 + 10;
+char A[1010][1010], B[101][101]; int cnt[1010][1010], n, m, x, y;
+
+namespace AC {
+	int tr[N][26], idx, fail[N];
+	vector<int> d[N];
+	
+	void init() {
+		memset(tr, 0, sizeof(tr));
+		memset(fail, 0, sizeof(fail));
+		memset(cnt, 0, sizeof(cnt));
+		memset(A, 0, sizeof(A));
+		memset(B, 0, sizeof(B));
+        for(int i=1;i<=idx;i++)d[i].clear();
+
+		idx = 0;
+	}
+	
+	void insert(char s[], int id) {
+		int l = strlen(s+1), u = 0;
+		for(int i=1;i<=l;i++) {
+			int &v = tr[u][s[i]-'a'];
+			if(!v) v = ++idx;
+			u = v;
+		}
+		d[u].push_back(id);
+	}
+	
+	queue<int> q;
+	
+	void build() {
+		for(int i=0;i<=25;i++) if(tr[0][i]) q.push(tr[0][i]);
+		while(!q.empty()) {
+			int u = q.front(); q.pop();
+			for(int i=0;i<=25;i++) {
+				if(tr[u][i]) fail[tr[u][i]] = tr[fail[u]][i], q.push(tr[u][i]);
+				else tr[u][i] = tr[fail[u]][i];
+			}
+		}
+	}
+	
+	void query(char s[], int id) {
+		int u = 0; 
+		for(int i = 1; i <= m; i++) {
+			u = tr[u][s[i]-'a'];
+//			cout << s[i] << ' ';
+			for(int k = u; k; k = fail[k]) for(auto x : d[k]) cnt[id-x+1][i-y+1]++;
+		}
+//		cout << '\n';
+	}
+}
