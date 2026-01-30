@@ -64,16 +64,33 @@ double cross(Pt a, Pt b, Pt c){
     return (b - a) % (c - a);
 }
 
-struct Line{
+struct Line {
     Pt s, e;
-    Line(){}
-    Line(Pt x, Pt y): s(x), e(y) {}
+    double ang;
+    Line() {}
+    Line(Pt x, Pt y) : s(x), e(y) {
+        ang = atan2(e.y - s.y, e.x - s.x);
+    }
+
+    // 检查点 P 是否在向量 se 的右侧（非法区域）
+    // 使用叉积判断：(e-s) ^ (P-s) < 0 则在右侧
+    bool onRight(const Pt& P) const {
+        return sgn((e - s) % (P - s)) < 0;
+    }
+
+    // 极角排序：极角相同则保留靠左的那条
+    bool operator< (const Line& b) const {
+        if (sgn(ang - b.ang) != 0) return ang < b.ang;
+        return sgn((e - s) % (b.e - s)) > 0;
+    }
 };
+
 
 int Cross(Pt c, Line l){
     Pt a = l.s, b = l.e;
     return sgn((b - a) % (c - a));
 }
+
 //三点共线
 bool In_one_line(Pt a, Pt b, Pt c){
     return !sgn((b - a) % (c - a));
@@ -100,7 +117,7 @@ bool OnSegment(Pt p, Pt a, Pt b){
 bool Intersect_line_seg(Pt a, Pt b, Pt c, Pt d){
     return Cross(a, b, c) * Cross(a, b, d) <= 0;
 }
-//线段与线段相交
+//线段与线段是否相交
 bool Intersect_seg(Pt a, Pt b, Pt c, Pt d){
     if (OnSegment(a, c, d) || OnSegment(b, c, d) || OnSegment(c, a, b) || OnSegment(d, a, b)) return 1;
     if (Cross(a, b, c) * Cross(a, b, d) >= 0) return 0;
@@ -123,11 +140,82 @@ double dist_sts(Pt a, Pt b, Pt c, Pt d){
 bool Line_parallel(Line A, Line B){
     return sgn((A.s - A.e) % (B.s - B.e)) == 0;
 }
-//直线交点
+//直线交点（四个点）
 Pt Inter_Line_Pt(Pt a, Pt b, Pt c, Pt d){
     Pt u = b - a, v = d - c;
     double t = ((a - c) % v) / (v % u);
     return a + u * t;
+}
+
+// 直线交点：输入两条 Line 对象（方便半平面交调用）
+Pt Inter_Line_Pt(Line a, Line b) {
+    Pt u = a.s - b.s;
+    Pt v1 = a.e - a.s;
+    Pt v2 = b.e - b.s;
+    double t = (v2 % u) / (v1 % v2);
+    return a.s + v1 * t;
+}
+
+//半平面交
+//保留每一条直线的左侧区域
+//!!!注意，设置边界的时候，limit一定要比eps大一点，不然可能卡精度，例如limit=1e-11,eps=1e-18
+// L.push_back(Line(Pt(-INF, limit), Pt(-limit, limit), 0));       
+// L.push_back(Line(Pt(-limit, limit), Pt(-limit, INF), 0));         
+// L.push_back(Line(Pt(-limit, INF), Pt(-INF, INF), 0));    
+// L.push_back(Line(Pt(-INF, INF), Pt(-INF, limit), 0));
+vector<Pt> getHalfPlaneIntersection(vector<Line>& L) {
+    // 1. 排序
+    sort(L.begin(), L.end());
+
+    // 2. 去重（对于极角相同的直线，只保留排序后第一条，即最靠左的那条）
+    vector<Line> ql;
+    for (int i = 0; i < L.size(); i++) {
+        if (i == 0 || sgn(L[i].ang - L[i-1].ang) != 0) {
+            ql.push_back(L[i]);
+        }
+    }
+
+    // 3. 双端队列求解
+    deque<Line> dq;
+    deque<Pt> pts; // pts[i] 是 dq[i] 和 dq[i+1] 的交点
+
+    dq.push_back(ql[0]);
+    for (int i = 1; i < ql.size(); i++) {
+        // 如果队尾的交点在当前直线的右侧（非法），弹出队尾
+        while (!pts.empty() && ql[i].onRight(pts.back())) {
+            pts.pop_back();
+            dq.pop_back();
+        }
+        // 如果队首的交点在当前直线的右侧（非法），弹出队首
+        // 这一步是为了处理“环绕一圈后覆盖了起始点”的情况
+        while (!pts.empty() && ql[i].onRight(pts.front())) {
+            pts.pop_front();
+            dq.pop_front();
+        }
+        
+        dq.push_back(ql[i]);
+        // 计算新加入直线与上一条直线的交点
+        if (dq.size() > 1) {
+            pts.push_back(Inter_Line_Pt(dq[dq.size() - 2], dq.back()));
+        }
+    }
+
+    // 4. 收尾检查：队首的直线可能会切掉队尾的点
+    while (!pts.empty() && dq.front().onRight(pts.back())) {
+        pts.pop_back();
+        dq.pop_back();
+    }
+    
+    // 如果队列中直线少于3条，无法构成多边形
+    if (dq.size() < 3) return {};
+
+    // 5. 计算首尾交点，封闭多边形
+    pts.push_back(Inter_Line_Pt(dq.back(), dq.front()));
+
+    // 将 deque 转为 vector 返回
+    vector<Pt> res;
+    for (auto p : pts) res.push_back(p);
+    return res;
 }
 
 //  ------ 多边形 -------
@@ -179,6 +267,7 @@ bool Is_contex(vector<Pt>& p){
     }
     return true;
 }
+
 // ------ 圆 -------
 struct Circle{
     Pt o;
