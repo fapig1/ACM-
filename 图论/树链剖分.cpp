@@ -157,6 +157,11 @@ struct HLD{
         }
         return dep[u] < dep[v] ? u : v;
     }
+
+    //获取两点间距离（无边权）
+    int getDist(int u, int v){
+        return dep[u] + dep[v] - 2 * dep[getLCA(u, v)];
+    }
 };
 
 
