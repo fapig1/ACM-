@@ -6,15 +6,16 @@ const int mod = 1e9 + 7;
 
 //线性基LinearBasis
 vector<int> p(64);
-void insert(int x){
+bool insert(int x){
     for(int i = 63; i >= 0; i--){
         if(!(x >> i)) continue;
         if(!p[i]){
             p[i] = x;
-            break;
+            return true;
         }
         x ^= p[i];
     }
+    return false;
 }
 
 //矩阵 (0-based)
