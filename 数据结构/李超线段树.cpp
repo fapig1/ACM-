@@ -21,7 +21,7 @@ struct Line{
         return k * x + b;
     }
 };
-//插入复杂度为log * log其余为 log(当前为维护最小值版本)
+//插入线段复杂度为 log * log 其余为 log (当前为维护最小值版本)
 struct LCSeg{
     int n;
     vector<Line> tr;
