@@ -2,20 +2,24 @@
 #define int long long
 using namespace std;
 int mod=1e9+7;
-
+int minProblem=1;
 //由于dp的形式千变万化，这里仅供思路参考
 struct pt{
     int x,y;
 };
 
-//点p1,p2的斜率是否大于k
+//点p1,p2的斜率是否小于k
 bool check(pt p1,pt p2,int k){
-    return (p2.y-p1.y)>=k*(p2.x-p1.x);
+    int c=(p2.y-p1.y);
+    int d=k*(p2.x-p1.x);
+    if(minProblem)return (p2.y-p1.y)<=k*(p2.x-p1.x);
+    else return (p2.y-p1.y)>=k*(p2.x-p1.x);
 }
 
 //点p1,p2的斜率是否大于p2,p3
 bool check(pt p1,pt p2,pt p3){
-    return (p2.y-p1.y)*(p3.x-p2.x)>=(p3.y-p2.y)*(p2.x-p1.x);
+    if(minProblem)return (p2.y-p1.y)*(p3.x-p2.x)>=(p3.y-p2.y)*(p2.x-p1.x);
+    else return (p2.y-p1.y)*(p3.x-p2.x)<=(p3.y-p2.y)*(p2.x-p1.x);
 }
 
 
@@ -38,12 +42,17 @@ void solve3(){
     //dp[i]+ss[i]-s[i]*kk[i]-c[i]=dp[j]+ss[j]-s[i]*kk[j];
     //因为s[i]已知且单调不减，使用斜率优化DP
     //设b=y-k*x   b=dp[i]+ss[i]-s[i]*kk[i]-c[i]    y=dp[j]+ss[j]    k=s[i]  x=kk[j]
+
+    //如果维护max问题，则维护上凸包，k取负数，minproblem=0
+    //如果维护min问题，则维护下凸包，k取正数，minproblem=1
+
+    // (注意负号！我们保证k是正数，所以x可能为了拼凑负号变为负数)
     //得到的新点{kk[i],dp[i]+ss[i]}插入单调队列中，保证单调队列中两点间斜率单调递增
     //使用一个cur维护当前符合要求的点（要么是终点，要么cur与cur+1两点间斜率刚好是单调队列中比k稍大的点）
     //时间复杂度O(n)
     //以下部分可以作为模板参考，替换其中的x,y,k,b的计算方式，只要保证k单调就可以应用
-    vector<pt> dp;
-    vector<int> adp(n+1);
+    vector<pt> dp;  //dp单调队列
+    vector<int> adp(n+1);   //dp答案
     dp.push_back({0,0});
     int cur=0;
     for(int i=1;i<=n;i++){
