@@ -77,17 +77,69 @@ void solve(){
         int y=dp[cur].y;
         int b=y-x*k;
 
+        //下面处理构造出的新点，主要根据x=-mina(j)和y=dp[j]，将所有的j替换为i
         int nx=0;
         if(i<tar.size()-1)nx=-mina[tar[i+1].x-1];   //防止末尾越界
+        int ny=b;
 
-        while(dp.size()>=2&&check(dp[dp.size()-2],dp[dp.size()-1],{nx,b})){
+        while(dp.size()>=2&&check(dp[dp.size()-2],dp[dp.size()-1],{nx,ny})){
             dp.pop_back();
         }
         while(cur>=dp.size())cur--;
 
-        dp.push_back({nx,b});
+        dp.push_back({nx,ny});
     }
     cout<<dp.back().y<<"\n";
+    
+}
+
+//https://www.luogu.com.cn/problem/P4072 求将n个数分成m段，使得整体方差最小
+void solve2(){
+    int n,m;
+    cin>>n>>m;
+    vector<int> vec(n+1);
+    vector<int> pre(n+1);
+    for(int i=1;i<=n;i++){
+        cin>>vec[i];
+        pre[i]=vec[i]+pre[i-1];
+    }
+    //dp[i][j]-sum(j)^2=-2sum(j)sum(k)+dp[i-1][k]+sum(k)^2
+    //设b=y-k*x   b=dp[i][j]-sum(j)^2    y=dp[i-1][k]+sum(k)^2    k=2sum(j)  x=sum(k)
+    //特别注意k*x项本身带一个负号，不要多余处理这个负号
+    //其中dp[i-1]表示上一维的答案，需要两个单调队列维护当前维的队列内容和上一维的队列内容
+    vector<vector<int>> dp(m+1,vector<int>(n+1));
+    for(int k=0;k<=n;k++){
+        dp[0][k]=0;
+    }
+    vector<pt> pdp;
+    pdp.push_back({0,0});
+    for(int i=1;i<=m;i++){
+        vector<pt> cdp;
+        int cur=0;
+        for(int j=i;j<=n;j++){
+            int k=2*pre[j];
+            while(cur+1<pdp.size()&&!check(pdp[cur],pdp[cur+1],k)){
+                cur++;      
+            }
+            
+            int x=pdp[cur].x;
+            int y=pdp[cur].y;
+            int b=y-x*k;
+            dp[i][j]=b+pre[j]*pre[j];
+            
+            //由于有多维，x=sum(k)和y=dp[i-1][k]+sum(k)^2无视i-1，将k替换为j
+            int nx=pre[j];
+            int ny=dp[i][j]+pre[j]*pre[j];
+            
+            while(cdp.size()>=2&&check(cdp[cdp.size()-2],cdp[cdp.size()-1],{nx,ny})){
+                cdp.pop_back();
+            }
+            
+            cdp.push_back({nx,ny});
+        }
+        swap(cdp,pdp);
+    }
+    cout<<dp[m][n]*m-pre[n]*pre[n]<<"\n";
     
 }
 
