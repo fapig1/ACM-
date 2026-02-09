@@ -196,6 +196,108 @@ void dirichlet_power(const vector<int>& f, vector<int>& res, int n, int k) {
         k >>= 1;
     }
 }
+
+// FFT 需要用 double，所以局部不建议用全局的 int long long 覆盖所有变量
+struct Complex {
+    double r, i;
+    Complex(double r = 0, double i = 0) : r(r), i(i) {}
+    Complex operator + (const Complex& t) const { return {r + t.r, i + t.i}; }
+    Complex operator - (const Complex& t) const { return {r - t.r, i - t.i}; }
+    Complex operator * (const Complex& t) const { return {r * t.r - i * t.i, r * t.i + i * t.r}; }
+};
+
+const double PI = acos(-1.0);
+vector<int> rev; // 预处理位逆序
+
+void fft_init(int len) {
+    rev.assign(len, 0);
+    for (int i = 0; i < len; i++)
+        rev[i] = (rev[i >> 1] >> 1) | ((i & 1) ? (len >> 1) : 0);
+}
+
+void fft(vector<Complex>& a, int type) {
+    int n = a.size();
+    for (int i = 0; i < n; i++) if (i < rev[i]) swap(a[i], a[rev[i]]);
+    for (int mid = 1; mid < n; mid <<= 1) {
+        Complex wn(cos(PI / mid), type * sin(PI / mid));
+        for (int i = 0; i < n; i += (mid << 1)) {
+            Complex w(1, 0);
+            for (int j = 0; j < mid; j++, w = w * wn) {
+                Complex x = a[i + j], y = w * a[i + j + mid];
+                a[i + j] = x + y;
+                a[i + j + mid] = x - y;
+            }
+        }
+    }
+    if (type == -1) for (auto& x : a) x.r /= n;
+}
+
+// 多项式乘法封装
+vector<int> multiply_fft(vector<int>& A, vector<int>& B) {
+    int n = A.size(), m = B.size(), total = n + m - 1;
+    int len = 1; while (len < total) len <<= 1;
+    fft_init(len);
+    vector<Complex> fa(len), fb(len);
+    for (int i = 0; i < n; i++) fa[i].r = A[i];
+    for (int i = 0; i < m; i++) fb[i].r = B[i];
+    fft(fa, 1); fft(fb, 1);
+    for (int i = 0; i < len; i++) fa[i] = fa[i] * fb[i];
+    fft(fa, -1);
+    vector<int> res(total);
+    for (int i = 0; i < total; i++) res[i] = (int)(fa[i].r + 0.5);
+    return res;
+}
+
+
+const int NTT_MOD = 998244353;
+const int G = 3;   // 原根
+const int GI = 332748118; // 原根的逆元
+
+// 借用你原本的 ksm，但注意模数要用 NTT_MOD
+int ntt_ksm(int a, int b) {
+    int res = 1; a %= NTT_MOD;
+    while (b) {
+        if (b & 1) res = res * a % NTT_MOD;
+        a = a * a % NTT_MOD;
+        b >>= 1;
+    }
+    return res;
+}
+
+void ntt(vector<int>& a, int type) {
+    int n = a.size();
+    for (int i = 0; i < n; i++) if (i < rev[i]) swap(a[i], a[rev[i]]);
+    for (int mid = 1; mid < n; mid <<= 1) {
+        int wn = ntt_ksm(type == 1 ? G : GI, (NTT_MOD - 1) / (mid << 1));
+        for (int i = 0; i < n; i += (mid << 1)) {
+            int w = 1;
+            for (int j = 0; j < mid; j++, w = w * wn % NTT_MOD) {
+                int x = a[i + j], y = w * a[i + j + mid] % NTT_MOD;
+                a[i + j] = (x + y) % NTT_MOD;
+                a[i + j + mid] = (x - y + NTT_MOD) % NTT_MOD;
+            }
+        }
+    }
+    if (type == -1) {
+        int inv_n = ntt_ksm(n, NTT_MOD - 2);
+        for (int& x : a) x = x * inv_n % NTT_MOD;
+    }
+}
+
+// NTT 多项式乘法封装
+vector<int> multiply_ntt(vector<int> A, vector<int> B) {
+    int n = A.size(), m = B.size(), total = n + m - 1;
+    int len = 1; while (len < total) len <<= 1;
+    fft_init(len); // rev数组计算逻辑与FFT一致
+    A.resize(len); B.resize(len);
+    ntt(A, 1); ntt(B, 1);
+    for (int i = 0; i < len; i++) A[i] = A[i] * B[i] % NTT_MOD;
+    ntt(A, -1);
+    A.resize(total);
+    return A;
+}
+
+
 //SOSDP
 int main() {
     int n = 50;
