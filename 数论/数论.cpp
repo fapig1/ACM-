@@ -248,6 +248,32 @@ vector<int> multiply_fft(vector<int>& A, vector<int>& B) {
     return res;
 }
 
+// // 假设输入两个多项式的系数
+//     vector<int> a = {1, 2, 1}; // x^2 + 2x + 1
+//     vector<int> b = {1, 1};    // x + 1
+    
+//     int n = a.size(), m = b.size();
+//     int len = 1;
+//     while (len < n + m - 1) len <<= 1; // 补齐到2的幂次
+
+//     vector<Complex> fa(len), fb(len);
+//     for (int i = 0; i < n; i++) fa[i] = Complex(a[i], 0);
+//     for (int i = 0; i < m; i++) fb[i] = Complex(b[i], 0);
+
+//     fft(fa, len, 1);
+//     fft(fb, len, 1);
+    
+//     // 点值相乘
+//     for (int i = 0; i < len; i++) fa[i] = fa[i] * fb[i];
+
+//     fft(fa, len, -1);
+
+//     // 输出结果 (四舍五入)
+//     for (int i = 0; i < n + m - 1; i++) {
+//         cout << (int)(fa[i].r + 0.5) << " ";
+//     }
+//     return 0;
+
 
 const int NTT_MOD = 998244353;
 const int G = 3;   // 原根
@@ -296,6 +322,26 @@ vector<int> multiply_ntt(vector<int> A, vector<int> B) {
     A.resize(total);
     return A;
 }
+
+// // 示例：(1 + 2x + x^2) * (1 + x)
+//     vector<int> a = {1, 2, 1}, b = {1, 1};
+//     int n = a.size(), m = b.size();
+    
+//     int len = 1;
+//     while (len < n + m - 1) len <<= 1;
+    
+//     a.resize(len);
+//     b.resize(len);
+
+//     ntt(a, len, 1);
+//     ntt(b, len, 1);
+    
+//     for (int i = 0; i < len; i++) a[i] = a[i] * b[i] % MOD;
+    
+//     ntt(a, len, -1);
+    
+//     for (int i = 0; i < n + m - 1; i++) cout << a[i] << " "; // 输出: 1 3 3 1 
+//     return 0;
 
 
 //SOSDP
