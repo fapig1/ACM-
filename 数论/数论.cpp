@@ -197,7 +197,7 @@ void dirichlet_power(const vector<int>& f, vector<int>& res, int n, int k) {
     }
 }
 
-// FFT 需要用 double，所以局部不建议用全局的 int long long 覆盖所有变量
+// FFT 需要用 double，所以局部不建议用全局的 int int 覆盖所有变量
 struct Complex {
     double r, i;
     Complex(double r = 0, double i = 0) : r(r), i(i) {}
@@ -330,7 +330,7 @@ vector<int> multiply_ntt(vector<int> A, vector<int> B) {
 
 //     // 直接调用封装好的乘法函数
 //     vector<int> C = multiply_ntt(A, B);  
-//     vector<long long> D = multiply_fft(A, B);
+//     vector<int> D = multiply_fft(A, B);
 
 //     for (int x : C) {
 //         cout << x << " ";
@@ -338,6 +338,29 @@ vector<int> multiply_ntt(vector<int> A, vector<int> B) {
 //     cout << endl;
 //     // 输出预期: 1 3 3 1
 
+
+// 类欧几里得算法 log求和 sum = i(0 - n-1) floor [(a*i + b) / c]
+// 求i从0到n-1的ai+b/c向下取整的总和
+// n >= 0, m > 0, a >= 0, b >= 0
+int floor_sum(int n, int m, int a, int b) {
+    int ans = 0;
+    if (a >= m) {
+        ans += (n - 1) * n / 2 * (a / m);
+        a %= m;
+    }
+    if (b >= m) {
+        ans += n * (b / m);
+        b %= m;
+    }
+
+    int y_max = (a * n + b) / m;
+    int x_max = (y_max * m - b);
+    if (y_max == 0) return ans;
+
+    ans += (n - (x_max + a - 1) / a) * y_max;
+    ans += floor_sum(y_max, a, m, (a - x_max % a) % a);
+    return ans;
+}
 
 //SOSDP
 int main() {
