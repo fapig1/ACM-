@@ -37,7 +37,7 @@ struct LCSeg{
                         //更改处 <
         if(tr[p].cal(mid) > val.cal(mid)) swap(tr[p], val);
         if(l == r) return;
-
+                        //更改处 >
         if(val.cal(l) < tr[p].cal(l)){
             add(p << 1, l, mid, val);
         } else {
