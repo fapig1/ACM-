@@ -196,6 +196,66 @@ void dirichlet_power(const vector<int>& f, vector<int>& res, int n, int k) {
         k >>= 1;
     }
 }
+
+// 阶乘表，通常n不会太大，可以预先计算好
+// 实际使用时可以根据需要动态计算或传入
+const int fact[10] = {1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880};
+
+/**
+ * 康托展开，求排列的字典序排第几，O(n^2)
+ * @param permutation 排列，元素为0..n-1或1..n均可，但需是连续不重复的整数
+ * @return 康托展开值（即比当前排列小的排列个数）
+ */
+int cantor_expand(const std::vector<int>& permutation) {
+    int n = permutation.size();
+    int code = 0;
+    
+    for (int i = 0; i < n; ++i) {
+        int smaller = 0;  // 统计未出现的元素中有多少个比当前元素小
+        for (int j = i + 1; j < n; ++j) {
+            if (permutation[j] < permutation[i]) {
+                smaller++;
+            }
+        }
+        code += smaller * fact[n - i - 1];
+    }
+    
+    return code;
+}
+
+/**
+ * 逆康托展开
+ * @param code 康托展开值（比目标排列小的排列个数）
+ * @param n 排列长度
+ * @param elements 可选的元素集合，默认使用0..n-1；如果是1..n则需传入对应集合
+ * @return 对应的排列
+ */
+std::vector<int> cantor_expand_inv(int code, int n, const std::vector<int>& elements = {}) {
+    std::vector<int> result;
+    
+    // 确定可用的元素集合
+    std::vector<int> available;
+    if (elements.empty()) {
+        // 默认使用0..n-1
+        for (int i = 0; i < n; ++i) {
+            available.push_back(i);
+        }
+    } else {
+        available = elements;
+    }
+    
+    for (int i = n; i > 0; --i) {
+        int fact_val = fact[i - 1];
+        int index = code / fact_val;      // 确定应该取第几小的数
+        code %= fact_val;                  // 更新余数
+        
+        result.push_back(available[index]);
+        available.erase(available.begin() + index);
+    }
+    
+    return result;
+}
+
 //SOSDP
 int main() {
     int n = 50;
