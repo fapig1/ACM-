@@ -256,6 +256,172 @@ std::vector<int> cantor_expand_inv(int code, int n, const std::vector<int>& elem
     return result;
 }
 
+
+// FFT 需要用 double，所以局部不建议用全局的 int int 覆盖所有变量
+struct Complex {
+    double r, i;
+    Complex(double r = 0, double i = 0) : r(r), i(i) {}
+    Complex operator + (const Complex& t) const { return {r + t.r, i + t.i}; }
+    Complex operator - (const Complex& t) const { return {r - t.r, i - t.i}; }
+    Complex operator * (const Complex& t) const { return {r * t.r - i * t.i, r * t.i + i * t.r}; }
+};
+
+const double PI = acos(-1.0);
+vector<int> rev; // 预处理位逆序
+
+void fft_init(int len) {
+    rev.assign(len, 0);
+    for (int i = 0; i < len; i++)
+        rev[i] = (rev[i >> 1] >> 1) | ((i & 1) ? (len >> 1) : 0);
+}
+
+void fft(vector<Complex>& a, int type) {
+    int n = a.size();
+    for (int i = 0; i < n; i++) if (i < rev[i]) swap(a[i], a[rev[i]]);
+    for (int mid = 1; mid < n; mid <<= 1) {
+        Complex wn(cos(PI / mid), type * sin(PI / mid));
+        for (int i = 0; i < n; i += (mid << 1)) {
+            Complex w(1, 0);
+            for (int j = 0; j < mid; j++, w = w * wn) {
+                Complex x = a[i + j], y = w * a[i + j + mid];
+                a[i + j] = x + y;
+                a[i + j + mid] = x - y;
+            }
+        }
+    }
+    if (type == -1) for (auto& x : a) x.r /= n;
+}
+
+// 多项式乘法封装
+vector<int> multiply_fft(vector<int>& A, vector<int>& B) {
+    int n = A.size(), m = B.size(), total = n + m - 1;
+    int len = 1; while (len < total) len <<= 1;
+    fft_init(len);
+    vector<Complex> fa(len), fb(len);
+    for (int i = 0; i < n; i++) fa[i].r = A[i];
+    for (int i = 0; i < m; i++) fb[i].r = B[i];
+    fft(fa, 1); fft(fb, 1);
+    for (int i = 0; i < len; i++) fa[i] = fa[i] * fb[i];
+    fft(fa, -1);
+    vector<int> res(total);
+    for (int i = 0; i < total; i++) res[i] = (int)(fa[i].r + 0.5);
+    return res;
+}
+
+// // 假设输入两个多项式的系数
+//     vector<int> a = {1, 2, 1}; // x^2 + 2x + 1
+//     vector<int> b = {1, 1};    // x + 1
+    
+//     int n = a.size(), m = b.size();
+//     int len = 1;
+//     while (len < n + m - 1) len <<= 1; // 补齐到2的幂次
+
+//     vector<Complex> fa(len), fb(len);
+//     for (int i = 0; i < n; i++) fa[i] = Complex(a[i], 0);
+//     for (int i = 0; i < m; i++) fb[i] = Complex(b[i], 0);
+
+//     fft(fa, len, 1);
+//     fft(fb, len, 1);
+    
+//     // 点值相乘
+//     for (int i = 0; i < len; i++) fa[i] = fa[i] * fb[i];
+
+//     fft(fa, len, -1);
+
+//     // 输出结果 (四舍五入)
+//     for (int i = 0; i < n + m - 1; i++) {
+//         cout << (int)(fa[i].r + 0.5) << " ";
+//     }
+//     return 0;
+
+
+const int NTT_MOD = 998244353;
+const int G = 3;   // 原根
+const int GI = 332748118; // 原根的逆元
+
+// 借用你原本的 ksm，但注意模数要用 NTT_MOD
+int ntt_ksm(int a, int b) {
+    int res = 1; a %= NTT_MOD;
+    while (b) {
+        if (b & 1) res = res * a % NTT_MOD;
+        a = a * a % NTT_MOD;
+        b >>= 1;
+    }
+    return res;
+}
+
+void ntt(vector<int>& a, int type) {
+    int n = a.size();
+    for (int i = 0; i < n; i++) if (i < rev[i]) swap(a[i], a[rev[i]]);
+    for (int mid = 1; mid < n; mid <<= 1) {
+        int wn = ntt_ksm(type == 1 ? G : GI, (NTT_MOD - 1) / (mid << 1));
+        for (int i = 0; i < n; i += (mid << 1)) {
+            int w = 1;
+            for (int j = 0; j < mid; j++, w = w * wn % NTT_MOD) {
+                int x = a[i + j], y = w * a[i + j + mid] % NTT_MOD;
+                a[i + j] = (x + y) % NTT_MOD;
+                a[i + j + mid] = (x - y + NTT_MOD) % NTT_MOD;
+            }
+        }
+    }
+    if (type == -1) {
+        int inv_n = ntt_ksm(n, NTT_MOD - 2);
+        for (int& x : a) x = x * inv_n % NTT_MOD;
+    }
+}
+
+// NTT 多项式乘法封装
+vector<int> multiply_ntt(vector<int> A, vector<int> B) {
+    int n = A.size(), m = B.size(), total = n + m - 1;
+    int len = 1; while (len < total) len <<= 1;
+    fft_init(len); // rev数组计算逻辑与FFT一致
+    A.resize(len); B.resize(len);
+    ntt(A, 1); ntt(B, 1);
+    for (int i = 0; i < len; i++) A[i] = A[i] * B[i] % NTT_MOD;
+    ntt(A, -1);
+    A.resize(total);
+    return A;
+}
+
+// // 多项式 A: 1 + 2x + x^2
+//     vector<int> A = {1, 2, 1};
+//     // 多项式 B: 1 + x
+//     vector<int> B = {1, 1};
+
+//     // 直接调用封装好的乘法函数
+//     vector<int> C = multiply_ntt(A, B);  
+//     vector<int> D = multiply_fft(A, B);
+
+//     for (int x : C) {
+//         cout << x << " ";
+//     }
+//     cout << endl;
+//     // 输出预期: 1 3 3 1
+
+
+// 类欧几里得算法 log求和 sum = i(0 - n-1) floor [(a*i + b) / c]
+// 求i从0到n-1的ai+b/c向下取整的总和
+// n >= 0, m > 0, a >= 0, b >= 0
+int floor_sum(int n, int m, int a, int b) {
+    int ans = 0;
+    if (a >= m) {
+        ans += (n - 1) * n / 2 * (a / m);
+        a %= m;
+    }
+    if (b >= m) {
+        ans += n * (b / m);
+        b %= m;
+    }
+
+    int y_max = (a * n + b) / m;
+    int x_max = (y_max * m - b);
+    if (y_max == 0) return ans;
+
+    ans += (n - (x_max + a - 1) / a) * y_max;
+    ans += floor_sum(y_max, a, m, (a - x_max % a) % a);
+    return ans;
+}
+
 //SOSDP
 int main() {
     int n = 50;
