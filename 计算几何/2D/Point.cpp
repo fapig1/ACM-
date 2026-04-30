@@ -268,6 +268,7 @@ bool Is_contex(vector<Pt>& p){
     return true;
 }
 
+
 // ------ 圆 -------
 struct Circle{
     Pt o;
@@ -497,4 +498,118 @@ vector<Pt> Andrew(vector<Pt>& p){
     if(ans.size() > 1) ans.pop_back();
     return ans;
 
+}
+
+int norm_idx(int x, int n){
+    x %= n;
+    if(x < 0) x += n;
+    return x;
+}
+
+// 点在已排序凸包中的位置：
+// 返回 -1 表示外部，0 表示边界上，1 表示内部
+// 要求 hull 为逆时针排序的凸包
+int InConvex(Pt q, const vector<Pt>& hull){
+    int n = hull.size();
+    if(n == 0) return -1;
+    if(n == 1) return q == hull[0] ? 0 : -1;
+    if(n == 2) return OnSegment(q, hull[0], hull[1]) ? 0 : -1;
+
+    int s1 = Cross(hull[0], hull[1], q);
+    int s2 = Cross(hull[0], hull[n - 1], q);
+    if(s1 < 0 || s2 > 0) return -1;
+    if(OnSegment(q, hull[0], hull[1]) || OnSegment(q, hull[0], hull[n - 1])) return 0;
+
+    int l = 1, r = n - 1;
+    while(l + 1 < r){
+        int mid = (l + r) >> 1;
+        if(Cross(hull[0], hull[mid], q) >= 0) l = mid;
+        else r = mid;
+    }
+
+    int side = Cross(hull[l], hull[(l + 1) % n], q);
+    if(side < 0) return -1;
+    if(OnSegment(q, hull[l], hull[(l + 1) % n])) return 0;
+    return side == 0 ? 0 : 1;
+}
+
+// 若 q 在凸包外部，返回一个可见边的编号 i，表示边 hull[i] -> hull[i+1] 对 q 可见
+// 若 q 在凸包内部或边界上，返回 -1
+int FindVisibleEdge(Pt q, const vector<Pt>& hull){
+    int n = hull.size();
+    if(n < 3) return -1;
+
+    if(Cross(hull[0], hull[1], q) < 0) return 0;
+    if(Cross(hull[0], hull[n - 1], q) > 0) return n - 1;
+
+    int l = 1, r = n - 1;
+    while(l + 1 < r){
+        int mid = (l + r) >> 1;
+        if(Cross(hull[0], hull[mid], q) >= 0) l = mid;
+        else r = mid;
+    }
+
+    return Cross(hull[l], hull[(l + 1) % n], q) < 0 ? l : -1;
+}
+
+bool VisibleEdge(Pt q, const vector<Pt>& hull, int idx){
+    int n = hull.size();
+    return Cross(hull[norm_idx(idx, n)], hull[norm_idx(idx + 1, n)], q) < 0;
+}
+
+// 返回外点 q 到已排序凸包的两个切点下标
+// 返回值中的 first, second 分别是可见边链的起点和终点，按凸包逆时针顺序给出
+// 若 q 不在凸包外部，则返回 {-1, -1}
+pair<int, int> TangentIndexConvex(Pt q, const vector<Pt>& hull){
+    int n = hull.size();
+    if(n == 0) return {-1, -1};
+    if(n == 1) return {0, 0};
+    if(n == 2) return {0, 1};
+
+    int k = FindVisibleEdge(q, hull);
+    if(k == -1) return {-1, -1};
+
+    int lo = 0, hi = n - 1;
+    while(lo < hi){
+        int mid = (lo + hi + 1) >> 1;
+        if(VisibleEdge(q, hull, k + mid)) lo = mid;
+        else hi = mid - 1;
+    }
+    int right_len = lo;
+
+    lo = 0, hi = n - 1;
+    while(lo < hi){
+        int mid = (lo + hi + 1) >> 1;
+        if(VisibleEdge(q, hull, k - mid)) lo = mid;
+        else hi = mid - 1;
+    }
+    int left_len = lo;
+
+    int left_edge = norm_idx(k - left_len, n);
+    int right_edge = norm_idx(k + right_len, n);
+    return {left_edge, norm_idx(right_edge + 1, n)};
+}
+
+pair<Pt, Pt> TangentPointConvex(Pt q, const vector<Pt>& hull){
+    auto idx = TangentIndexConvex(q, hull);
+    if(idx.first == -1) return {Pt(), Pt()};
+    return {hull[idx.first], hull[idx.second]};
+}
+
+bool InTangentCone(Pt a, Pt b, const vector<Pt>& hull){
+    auto idx = TangentIndexConvex(a, hull);
+    if(idx.first == -1) return InConvex(a, hull) >= 0;
+    return Cross(a, hull[idx.first], b) <= 0 && Cross(a, hull[idx.second], b) >= 0;
+}
+
+// 判断线段 ab 是否与已排序凸包相交
+// 要求 hull 为逆时针排序的凸包
+bool Intersect_seg_convex(Pt a, Pt b, const vector<Pt>& hull){
+    int n = hull.size();
+    if(n == 0) return false;
+    if(n == 1) return OnSegment(hull[0], a, b);
+    if(n == 2) return Intersect_seg(a, b, hull[0], hull[1]);
+
+    if(InConvex(a, hull) >= 0 || InConvex(b, hull) >= 0) return true;
+    return InTangentCone(a, b, hull) && InTangentCone(b, a, hull);
 }
