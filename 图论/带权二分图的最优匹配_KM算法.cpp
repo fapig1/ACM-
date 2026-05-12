@@ -78,6 +78,10 @@ void solve(){
         }
     }
     int det=KM();
+    /*
+        如果要求完美匹配的最小权，将边权取负数w[i][j]=-w[i][j]
+        最后答案输出-KM()即可
+    */
     cout<<sum-det<<"\n";
 }
 
