@@ -2,35 +2,31 @@
 #define int long long
 #define endl '\n'
 using namespace std;
-const int N=2005;
-int n1,n2,m;
-int st[N];          //当前轮是否访问，主要判断环
-int match[N];       //右部已经和左部匹配的点
-vector<int> arr[N]; //左部指向右部的边
-//匈牙利算法：二分图的最大匹配 O(n^m)
-bool find(int x)
-{
-    for(auto y:arr[x])
-    {
-        if(!st[y])
-        {
-            st[y]=1;
-            if(match[y]==0||find(match[y]))
-            {
-                match[y]=x;
-                return true;
+
+const int MAXN=505;     //右部大小
+vector<int> state;      //右部已被左部匹配的状态
+vector<int> vis(MAXN);   //右部的vis数组，用来判环
+vector<vector<int>> vec; //从左部向右部建的有向边图
+int visnum=1;           //标记法记vis，节省时间
+int check(int ind){
+    for(int i:vec[ind]){
+        if(vis[i]<visnum){
+            vis[i]=visnum;
+            if(state[i]==0||check(state[i])){
+                state[i]=ind;
+                return 1;
             }
         }
     }
-    return false;
+    return 0;
 }
 
 void solve() 
 {
-    //初始化
-    fill(arr,arr+N,vector<int>());
-    memset(match,0,sizeof(match));
 
+    int n1,n2,m;
+    vec.assign(n1+1,vector<int>());
+    state.assign(n2+1,0);
     //此时左部和右部已经被区分过，如果没有被区分过先进行染色dfs操作
     cin>>n1>>n2>>m;
     for(int i=1;i<=m;i++)
@@ -38,16 +34,18 @@ void solve()
         int u,v;
         cin>>u>>v;
         //因为只从一边找另一边,所以只用存一个方向，即只建左部指向右部的边
-        arr[u].push_back(v);
+        vec[u].push_back(v);
     }
-    int res=0;
-    for(int i=1;i<=n1;i++)
-    {
-        memset(st,0,sizeof st);
-        if(find(i)) res++;
+
+    int ans=0;
+    for(int i=1;i<=n1;i++){
+        visnum++;
+        if(check(i))ans++;
     }
-    cout<<res<<endl;
+    cout<<ans<<"\n";
 }
+
+
 
 /*
 
