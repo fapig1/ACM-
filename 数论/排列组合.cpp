@@ -48,7 +48,8 @@ int Derangement(int n){
     }
 }
 
-//卡特兰数CatalanNumber
+//卡特兰数CatalanNumber 解决不交叉问题的种类数
+//有 n 个左括号与 n 个右括号。能组成多少个合法括号序列？
 int CatalanNumber(int n){
     int ans = C(2 * n, n) - C(2 * n, n + 1);
     return (ans % mod + mod) % mod;

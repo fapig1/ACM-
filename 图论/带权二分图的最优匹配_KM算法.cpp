@@ -67,14 +67,12 @@ int KM() {//KM板子
 void solve(){
     cin>>cnta;
     cntb=cnta;
-    int sum=0;
     for(int i=1;i<=cnta;i++){
         for(int j=1;j<=cntb;j++)
         {
             int in;
             cin>>in;
             w[i][j]=in;
-            sum+=in;
         }
     }
     int det=KM();
@@ -82,7 +80,7 @@ void solve(){
         如果要求完美匹配的最小权，将边权取负数w[i][j]=-w[i][j]
         最后答案输出-KM()即可
     */
-    cout<<sum-det<<"\n";
+    cout<<det<<"\n";
 }
 
 main()
