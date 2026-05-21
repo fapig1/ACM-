@@ -9,6 +9,6 @@ int rnd(int l, int r){
 }
 
 signed main(){
-    cout << rnd(1, 100);
+    cout << rnd(1, 100) << " " << rnd(1, 100);
     return 0;
 }
