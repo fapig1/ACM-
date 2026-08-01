@@ -31,7 +31,7 @@ void init(){
 }
 
 int A(int n, int m){
-    return fac[n] * inv[m] % mod;
+    return fac[n] * inv[n - m] % mod;
 }
 
 int C(int n, int m){
