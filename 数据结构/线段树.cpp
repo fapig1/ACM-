@@ -83,3 +83,47 @@ struct Seg{
         return res;
     }
 };
+
+//非递归线段树，适用于单点修改区间查询的问题，常数更小
+struct Tree {
+    int sz;                // 大于值域上限的 2 的幂
+    vector<int> tree;
+
+    // n: 值域右端点（1‑based），实际会用到的最大下标
+    Tree(int n) {
+        sz = 1;
+        while (sz < n) sz <<= 1;
+        tree.assign(sz * 2, 0);      // 1‑based 索引，叶子从 sz 开始
+    }
+
+    // 清空线段树（全部置零），供下一轮重用
+    void clear() {
+        fill(tree.begin(), tree.end(), 0);
+    }
+
+    // 单点更新：忽略前三个无用参数，只保留 tar, val
+    void update(int /*ind*/, int /*l*/, int /*r*/, int tar, int val) {
+        int p = tar + sz - 1;         // tar 是 1‑based
+        tree[p] = val;
+        p >>= 1;
+        while (p) {
+            tree[p] = max(tree[p << 1], tree[p << 1 | 1]);
+            p >>= 1;
+        }
+    }
+
+    // 区间最大值查询：忽略前三个无用参数，ql,qr 为 1‑based
+    int query(int /*ind*/, int /*l*/, int /*r*/, int ql, int qr) {
+        if (ql > qr) return 0;
+        int l = ql + sz - 1;
+        int r = qr + sz - 1;
+        int ans = 0;
+        while (l <= r) {
+            if (l & 1) ans = max(ans, tree[l++]);
+            if (!(r & 1)) ans = max(ans, tree[r--]);
+            l >>= 1;
+            r >>= 1;
+        }
+        return ans;
+    }
+};
