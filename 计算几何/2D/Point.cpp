@@ -424,7 +424,11 @@ vector<Pt> Intersection_circle_circle(Circle A, Circle B) {
     // 情况 2: 相切 (1 个交点)
     if (sgn(d - (A.r + B.r)) == 0 || sgn(d - fabs(A.r - B.r)) == 0) {
         Pt e = (B.o - A.o) / d;
-        return {A.o + e * A.r};
+        if (sgn(d - (A.r + B.r)) == 0) return {A.o + e * A.r}; // 外切: 切点在两圆心之间
+        // 内切: 切点在远离大圆圆心的那一侧, 不能统一用 A.o + e*A.r
+        // 例: A(36.5,0,r=0.4) 内切于 B(42.1,0,r=6) 时, 切点应是 (36.1,0) 而非 (36.9,0)
+        if (sgn(A.r - B.r) > 0) return {A.o + e * A.r}; // A 含 B
+        return {A.o - e * A.r};                         // B 含 A
     }
 
     // 情况 3: 相交 (2 个交点)
@@ -677,21 +681,14 @@ pair<int, int> TangentIndexConvex(Pt q, const vector<Pt>& hull){
     int k = FindVisibleEdge(q, hull);
     if(k == -1) return {-1, -1};
 
-    int lo = 0, hi = n - 1;
-    while(lo < hi){
-        int mid = (lo + hi + 1) >> 1;
-        if(VisibleEdge(q, hull, k + mid)) lo = mid;
-        else hi = mid - 1;
-    }
-    int right_len = lo;
-
-    lo = 0, hi = n - 1;
-    while(lo < hi){
-        int mid = (lo + hi + 1) >> 1;
-        if(VisibleEdge(q, hull, k - mid)) lo = mid;
-        else hi = mid - 1;
-    }
-    int left_len = lo;
+    // 从 k 向两侧线性扩展可见边链(凸包上可见边是一段连续弧)
+    // 不能用二分: 链可能从 0 号边开始或绕过 0 号边,
+    // 此时 "第 k±mid 条边可见" 不是 mid 的单调函数, 二分会返回错误的切点
+    // (实测: 可见链为 0..3 号边时, 原二分把左边切点从 0 错成 1)
+    int right_len = 0;
+    while(VisibleEdge(q, hull, k + right_len + 1)) right_len++;
+    int left_len = 0;
+    while(VisibleEdge(q, hull, k - left_len - 1)) left_len++;
 
     int left_edge = norm_idx(k - left_len, n);
     int right_edge = norm_idx(k + right_len, n);

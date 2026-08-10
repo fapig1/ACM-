@@ -47,6 +47,53 @@ vector<pair<int,int>> getPrimesCnt(int x){
 }
 
 
+// 线性筛综合版：质数表 + 最小质因子 + 莫比乌斯函数 + 欧拉函数 + 约数个数 + 约数和
+// 调用 linear_sieve(maxn) 后直接使用全局数组
+bool is_comp[maxn + 5];
+int mu[maxn + 5];          // 莫比乌斯函数
+int phi_arr[maxn + 5];     // 欧拉函数
+int div_cnt[maxn + 5];     // 约数个数
+int div_sum[maxn + 5];     // 约数和
+int minp_exp[maxn + 5];    // 最小质因子的指数
+int minp_pwsum[maxn + 5];  // 1 + p + p^2 + ... + p^(最小质因子指数)
+
+void linear_sieve(int n){
+    mu[1] = 1; phi_arr[1] = 1; div_cnt[1] = 1; div_sum[1] = 1;
+    for(int i = 2; i <= n; i++){
+        if(!is_comp[i]){
+            primes.push_back(i);
+            mu[i] = -1;
+            phi_arr[i] = i - 1;
+            div_cnt[i] = 2;
+            div_sum[i] = i + 1;
+            minp_exp[i] = 1;
+            minp_pwsum[i] = i + 1;
+        }
+        for(int p : primes){
+            int m = i * p;
+            if(m > n) break;
+            is_comp[m] = true;
+            if(i % p == 0){
+                mu[m] = 0;
+                phi_arr[m] = phi_arr[i] * p;
+                minp_exp[m] = minp_exp[i] + 1;
+                minp_pwsum[m] = minp_pwsum[i] * p + 1;
+                div_cnt[m] = div_cnt[i] / (minp_exp[i] + 1) * (minp_exp[m] + 1);
+                div_sum[m] = div_sum[i] / minp_pwsum[i] * minp_pwsum[m];
+                break;
+            }else{
+                mu[m] = -mu[i];
+                phi_arr[m] = phi_arr[i] * (p - 1);
+                minp_exp[m] = 1;
+                minp_pwsum[m] = p + 1;
+                div_cnt[m] = div_cnt[i] * 2;
+                div_sum[m] = div_sum[i] * (p + 1);
+            }
+        }
+    }
+}
+
+
 // 旧欧拉筛单独函数
 // void init(){
 //     vector<bool> nop(maxn + 5);
@@ -79,6 +126,7 @@ int exgcd(int a, int b, int &x, int &y){
     if(!b){
         x = 1;
         y = 0;
+        return a;
     }
     int d = exgcd(b, a % b, x, y);
     int t = x;
@@ -105,16 +153,15 @@ int CRT(int k, vector<int> a, vector<int> r){
 //求解方程组 x ≡ a[i] (mod m[i])
 int excrt(vector<int> m, vector<int> a, int n){
     int M = m[0];
-    int ans =  a[0];
+    int ans = a[0];
     for(int i = 1; i < n; i++){
         int c = (a[i] - ans % m[i] + m[i]) % m[i];
         int x, y;
         int d = exgcd(M, m[i], x, y);
-        if(c % d != 1) return -1;
-        int k = m[i] % d;
-        x = ksm(x, c / d, k);
+        if(c % d) return -1;
+        x = x * (c / d) % (m[i] / d);
         ans += x * M;
-        M *= k;
+        M = M / d * m[i];
         ans = (ans % M + M) % M;
     }
     return ans;
@@ -128,9 +175,9 @@ int oula_phi(int n){
             ans = ans / i * (i - 1);
             while(n % i == 0) n /= i;
         }
-        if(n > 1) ans = ans / n * (n - 1);
-        return ans;
     }
+    if(n > 1) ans = ans / n * (n - 1);
+    return ans;
 }
 
 //筛法求欧拉函数
@@ -162,6 +209,60 @@ vector<int> sieve_phi(int n) {
     }
     
     return phi;
+}
+
+// 莫比乌斯反演
+// 若 g(n) = Σ_{d|n} f(d)，则 f(n) = Σ_{d|n} μ(d) * g(n/d)
+// 若 g(n) = Σ_{n|d} f(d)，则 f(n) = Σ_{n|d} μ(d/n) * g(d)
+// 常用结论:
+//   [gcd(i, j) == 1] = Σ_{d | gcd(i,j)} μ(d)
+//   φ(n) = Σ_{d|n} μ(d) * (n / d)
+//   线性筛求 μ / φ 见上方 linear_sieve
+
+// 狄利克雷前缀/后缀 变换（快速 zeta 变换，O(n log log n)）
+// 需要先调用 linear_sieve(maxn) 得到全局质数表 primes
+// 注意: 变换是原地进行的，若需保留原数组请先拷贝
+
+// 前缀和: 变换后 f[n] = Σ_{d|n} f[d]
+void dirichlet_prefix_sum(vector<int>& f, int n){
+    for(int p : primes)
+        for(int i = 1; i * p <= n; i++)
+            f[i * p] += f[i];
+}
+
+// 后缀和: 变换后 f[d] = Σ_{d|n} f[n]
+void dirichlet_suffix_sum(vector<int>& f, int n){
+    for(int p : primes)
+        for(int i = n / p; i >= 1; i--)
+            f[i] += f[i * p];
+}
+
+// 前缀最值: 变换后 f[n] = max_{d|n} f[d]
+void dirichlet_prefix_max(vector<int>& f, int n){
+    for(int p : primes)
+        for(int i = 1; i * p <= n; i++)
+            f[i * p] = max(f[i * p], f[i]);
+}
+
+// 前缀最值: 变换后 f[n] = min_{d|n} f[d]
+void dirichlet_prefix_min(vector<int>& f, int n){
+    for(int p : primes)
+        for(int i = 1; i * p <= n; i++)
+            f[i * p] = min(f[i * p], f[i]);
+}
+
+// 前缀和的逆变换: 已知 g[n] = Σ_{d|n} f[d]，由 g 还原 f
+void dirichlet_prefix_inv(vector<int>& f, int n){
+    for(int p : primes)
+        for(int i = n / p; i >= 1; i--)
+            f[i * p] -= f[i];
+}
+
+// 后缀和的逆变换: 已知 g[d] = Σ_{d|n} f[n]，由 g 还原 f
+void dirichlet_suffix_inv(vector<int>& f, int n){
+    for(int p : primes)
+        for(int i = 1; i * p <= n; i++)
+            f[i] -= f[i * p];
 }
 
 // 狄利克雷卷积快速幂 - 计算f的k次卷积幂
@@ -335,68 +436,175 @@ vector<int> multiply_fft(vector<int>& A, vector<int>& B) {
 //     return 0;
 
 
+// ============================== NTT 快速数论变换 ==============================
+// 模数 NTT_MOD = 998244353 = 119 * 2^23 + 1 是质数，
+//   它减 1 后含足够多的因子 2，因此支持长度不超过 2^23 的 NTT。
+// G = 3 是该模数的一个原根，GI 是 G 的逆元（给逆变换当单位根）。
+// 与 FFT 相比: NTT 全程整数运算、无浮点误差，但每个系数都会先对 NTT_MOD 取模。
+// 用法: 多项式系数按升幂存入 vector<int>，直接调用 multiply_ntt(A, B) 即可。
+// 依赖上方通用快速幂 ksm。
 const int NTT_MOD = 998244353;
-const int G = 3;   // 原根
-const int GI = 332748118; // 原根的逆元
+const int G = 3;          // 998244353 的一个原根
+const int GI = 332748118; // G 在模 NTT_MOD 下的逆元
 
-// 借用你原本的 ksm，但注意模数要用 NTT_MOD
-int ntt_ksm(int a, int b) {
-    int res = 1; a %= NTT_MOD;
-    while (b) {
-        if (b & 1) res = res * a % NTT_MOD;
-        a = a * a % NTT_MOD;
-        b >>= 1;
-    }
-    return res;
+// 位逆序表: ntt_rev[i] = i 按 log2(n) 位反转后的下标，变换前按当前长度 n 更新
+vector<int> ntt_rev;
+void ntt_rev_init(int n) {
+    ntt_rev.resize(n);
+    for (int i = 0; i < n; i++)
+        ntt_rev[i] = (ntt_rev[i >> 1] >> 1) | ((i & 1) ? (n >> 1) : 0);
 }
 
+// 原地 NTT 变换（蝶形运算）
+// type =  1: 正变换，系数表示 -> 点值表示
+// type = -1: 逆变换，点值表示 -> 系数表示（结尾自动乘 1/n）
+// 前置条件: a.size() 为 2 的幂（且 ≤ 2^23），并已按该长度调用过 ntt_rev_init
 void ntt(vector<int>& a, int type) {
     int n = a.size();
-    for (int i = 0; i < n; i++) if (i < rev[i]) swap(a[i], a[rev[i]]);
-    for (int mid = 1; mid < n; mid <<= 1) {
-        int wn = ntt_ksm(type == 1 ? G : GI, (NTT_MOD - 1) / (mid << 1));
-        for (int i = 0; i < n; i += (mid << 1)) {
+    // 1. 位逆序重排，把系数放到分治正确的位置
+    for (int i = 0; i < n; i++)
+        if (i < ntt_rev[i]) swap(a[i], a[ntt_rev[i]]);
+    // 2. 自底向上合并，len 为当前合并块的长度（2, 4, 8, ...）
+    for (int len = 2; len <= n; len <<= 1) {
+        int wlen = ksm(type == 1 ? G : GI, (NTT_MOD - 1) / len, NTT_MOD); // len 次单位根
+        for (int i = 0; i < n; i += len) {      // 遍历每个块
             int w = 1;
-            for (int j = 0; j < mid; j++, w = w * wn % NTT_MOD) {
-                int x = a[i + j], y = w * a[i + j + mid] % NTT_MOD;
+            for (int j = 0; j < len / 2; j++, w = w * wlen % NTT_MOD) { // 块内蝶形
+                int x = a[i + j];               // 左半边
+                int y = w * a[i + j + len / 2] % NTT_MOD; // 右半边乘旋转因子
                 a[i + j] = (x + y) % NTT_MOD;
-                a[i + j + mid] = (x - y + NTT_MOD) % NTT_MOD;
+                a[i + j + len / 2] = (x - y + NTT_MOD) % NTT_MOD;
             }
         }
     }
-    if (type == -1) {
-        int inv_n = ntt_ksm(n, NTT_MOD - 2);
+    if (type == -1) { // 3. 逆变换最后整体除以 n
+        int inv_n = ksm(n, NTT_MOD - 2, NTT_MOD);
         for (int& x : a) x = x * inv_n % NTT_MOD;
     }
 }
 
-// NTT 多项式乘法封装
-vector<int> multiply_ntt(vector<int> A, vector<int> B) {
+// NTT 加速的多项式乘法，返回系数均在 [0, NTT_MOD) 内的结果
+// 返回 C，长度 n + m - 1，满足 C[k] = Σ_{i+j=k} A[i] * B[j] (mod NTT_MOD)
+// 限制: n + m - 1 ≤ 2^23；超出需换大模数（如 469762049, 1004535809）或拆系数 MTT
+// 使用示例: vector<int> C = multiply_ntt(A, B);
+vector<int> multiply_ntt(const vector<int>& A, const vector<int>& B) {
+    if (A.empty() || B.empty()) return {};      // 空多项式
     int n = A.size(), m = B.size(), total = n + m - 1;
-    int len = 1; while (len < total) len <<= 1;
-    fft_init(len); // rev数组计算逻辑与FFT一致
-    A.resize(len); B.resize(len);
-    ntt(A, 1); ntt(B, 1);
-    for (int i = 0; i < len; i++) A[i] = A[i] * B[i] % NTT_MOD;
-    ntt(A, -1);
-    A.resize(total);
-    return A;
+    int len = 1;                                // 结果长度为 total，补到不小于它的 2 的幂
+    while (len < total) len <<= 1;
+    vector<int> fa(A), fb(B);                   // 拷贝一份，不修改入参
+    fa.resize(len); fb.resize(len);
+    ntt_rev_init(len);
+    ntt(fa, 1); ntt(fb, 1);                     // 系数 -> 点值
+    for (int i = 0; i < len; i++) fa[i] = fa[i] * fb[i] % NTT_MOD; // 点值相乘
+    ntt(fa, -1);                                // 点值 -> 系数
+    fa.resize(total);                           // 高次项系数均为 0，截掉
+    return fa;
 }
 
-// // 多项式 A: 1 + 2x + x^2
-//     vector<int> A = {1, 2, 1};
-//     // 多项式 B: 1 + x
-//     vector<int> B = {1, 1};
+// 使用示例:
+//   vector<int> A = {1, 2, 1};        // A(x) = 1 + 2x + x^2
+//   vector<int> B = {1, 1};           // B(x) = 1 + x
+//   vector<int> C = multiply_ntt(A, B); // C = {1, 3, 3, 1}
 
-//     // 直接调用封装好的乘法函数
-//     vector<int> C = multiply_ntt(A, B);  
-//     vector<int> D = multiply_fft(A, B);
 
-//     for (int x : C) {
-//         cout << x << " ";
-//     }
-//     cout << endl;
-//     // 输出预期: 1 3 3 1
+// ============================== 多项式求逆（NTT 加速） ==============================
+// 求 B(x) 使得 A(x)·B(x) ≡ 1 (mod x^n)，所有系数均取模 NTT_MOD（998244353）
+// 依赖: ksm + ntt + ntt_rev_init + multiply_ntt
+// 要求: A[0] != 0（常数项在模意义下存在逆元）
+// 原理: 牛顿迭代。若 B 满足 A·B ≡ 1 (mod x^m)，则
+//         B' = B·(2 − A·B) 满足 A·B' ≡ 1 (mod x^{2m})
+//       长度每次翻倍，总复杂度 O(n log n)。len = 4m 保证卷积无循环串位
+vector<int> poly_inv(const vector<int>& A, int n){
+    vector<int> B(1, ksm(A[0], NTT_MOD - 2, NTT_MOD)); // 初始 B0 = A[0]^{-1}
+    int m = 1;                                         // 当前精度: 模 x^m
+    while(m < n){
+        int len = m << 2;                              // NTT 长度 4m
+        vector<int> a(min((int)A.size(), m << 1)), b(B); // A 截断到 2m 项
+        for(int i = 0; i < (int)a.size(); i++) a[i] = A[i];
+        a.resize(len); b.resize(len);
+        ntt_rev_init(len);
+        ntt(a, 1); ntt(b, 1);
+        for(int i = 0; i < len; i++)                   // 点值域: B(2 − A·B)
+            a[i] = b[i] * (2 - a[i] * b[i] % NTT_MOD + NTT_MOD) % NTT_MOD;
+        ntt(a, -1);
+        B.assign(a.begin(), a.begin() + (m << 1));     // 精度翻倍到 2m
+        m <<= 1;
+    }
+    B.resize(n);                                       // 截断到所需长度
+    return B;
+}
+// 使用示例:
+//   vector<int> A = {1, 1, 1};          // A(x) = 1 + x + x^2
+//   vector<int> B = poly_inv(A, 3);     // B = {1, mod-1, 0}，即 1 − x
+//   验证: vector<int> C = multiply_ntt(A, B); C.resize(3); // C = {1, 0, 0}
+
+
+// 快速沃尔什变换 FWT（与/或/异或 卷积，O(n log n)，n 为 2 的幂，模 mod 运算）
+// 用法: a、b 长度补成 2 的幂 → 各自正变换 → 点乘 → 逆变换
+
+// 或卷积: c[k] = Σ_{i|j==k} a[i]*b[j]
+void fwt_or(vector<int>& a, bool inv){
+    int n = a.size();
+    for(int len = 1; len < n; len <<= 1)
+        for(int i = 0; i < n; i += len << 1)
+            for(int j = 0; j < len; j++){
+                int &x = a[i + j], &y = a[i + j + len];
+                if(inv) y = (y - x + mod) % mod;
+                else y = (y + x) % mod;
+            }
+}
+
+// 与卷积: c[k] = Σ_{i&j==k} a[i]*b[j]
+void fwt_and(vector<int>& a, bool inv){
+    int n = a.size();
+    for(int len = 1; len < n; len <<= 1)
+        for(int i = 0; i < n; i += len << 1)
+            for(int j = 0; j < len; j++){
+                int &x = a[i + j], &y = a[i + j + len];
+                if(inv) x = (x - y + mod) % mod;
+                else x = (x + y) % mod;
+            }
+}
+
+// 异或卷积: c[k] = Σ_{i^j==k} a[i]*b[j]
+void fwt_xor(vector<int>& a, bool inv){
+    int n = a.size();
+    for(int len = 1; len < n; len <<= 1)
+        for(int i = 0; i < n; i += len << 1)
+            for(int j = 0; j < len; j++){
+                int x = a[i + j], y = a[i + j + len];
+                a[i + j] = (x + y) % mod;
+                a[i + j + len] = (x - y + mod) % mod;
+            }
+    if(inv){
+        int in = ksm(n, mod - 2, mod);
+        for(int& v : a) v = v * in % mod;
+    }
+}
+
+// FWT 卷积封装，传入 fwt_or / fwt_and / fwt_xor
+vector<int> fwt_conv(vector<int> a, vector<int> b, void (*f)(vector<int>&, bool)){
+    int n = 1, mx = max(a.size(), b.size());
+    while(n < mx) n <<= 1;
+    a.resize(n); b.resize(n);
+    f(a, false); f(b, false);
+    for(int i = 0; i < n; i++) a[i] = a[i] * b[i] % mod;
+    f(a, true);
+    return a;
+}
+
+// 整除分块: Σ_{i=1}^{n} floor(n/i) 取值只有 O(√n) 段
+// 每段 [l, r] 内 floor(n/i) 相同，r = n / (n / l)
+int div_block_sum(int n){
+    int ans = 0;
+    for(int l = 1, r; l <= n; l = r + 1){
+        r = n / (n / l);
+        ans += (n / l) * (r - l + 1);
+    }
+    return ans;
+}
+// 推广: Σ_{i=1}^{min(n,m)} floor(n/i) * floor(m/i) 同理按 r = min(n/(n/l), m/(m/l)) 分段
 
 
 // 类欧几里得算法 log求和 sum = i(0 - n-1) floor [(a*i + b) / c]
@@ -423,7 +631,7 @@ int floor_sum(int n, int m, int a, int b) {
 }
 
 //SOSDP
-int main() {
+signed main() {
     int n = 50;
     int total_states = (1 << n);
     vector<int> dp(total_states, 0); // dp数组初始化，根据题意可能初始为A[i]
