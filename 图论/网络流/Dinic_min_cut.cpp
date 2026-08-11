@@ -1,121 +1,141 @@
-#include<bits/stdc++.h>
-using namespace std;
-#define endl '\n'
-#define int long long
-const int INF=1e18;
-const double eps=1e-6;
-const double PI=acos(-1);
-const int N=210;
-const int M=10010;
-const int MOD=998244353;
+struct Dinic {
+    struct Edge {
+        int to, rev;
+        ll cap;
 
-int idx=1;//从2 3开始配对
-int h[N];
-int d[N],cur[N];
-int S,T;
-int n,m;
-bool vis[N];
+        // 如果需要输出原图边，可以记录原始容量
+        ll originalCap;
+    };
 
-struct edge {
-    int v,c,ne;
-}e[M];
+    int n;
+    vector<vector<Edge>> g;
+    vector<int> level, cur;
 
-void add(int a,int b,int c) {
-    e[++idx]={b,c,h[a]};
-    h[a]=idx;
-}
-bool bfs() {
-    memset(d,0,sizeof d);
-    queue<int> q;
-    q.push(S);
-    d[S]=1;
-    while (!q.empty()) {
-        int u=q.front();
-        q.pop();
-        for (int i=h[u];i!=-1;i=e[i].ne) {
-            int v=e[i].v;
-            if (d[v]==0&&e[i].c) {
-                d[v]=d[u]+1;
-                q.push(v);
-                if (v==T) return true;
+    Dinic(int n) : n(n), g(n), level(n), cur(n) {}
+
+    void addEdge(int u, int v, ll cap) {
+        Edge a{v, (int)g[v].size(), cap, cap};
+        Edge b{u, (int)g[u].size(), 0, 0};
+
+        g[u].push_back(a);
+        g[v].push_back(b);
+    }
+
+    bool bfs(int s, int t) {
+        fill(level.begin(), level.end(), -1);
+
+        queue<int> q;
+        q.push(s);
+        level[s] = 0;
+
+        while (!q.empty()) {
+            int u = q.front();
+            q.pop();
+
+            for (auto &e : g[u]) {
+                if (e.cap > 0 && level[e.to] == -1) {
+                    level[e.to] = level[u] + 1;
+                    q.push(e.to);
+                }
             }
         }
+
+        return level[t] != -1;
     }
-    return false;
-}
-int dfs(int u,int mf) { //多路增广
-    if (u==T) return mf;
-    int sum=0;
-    for (int i=cur[u];i!=-1;i=e[i].ne) {
-        cur[u]=i;//当前弧优化
-        int v=e[i].v;
-        if (d[v]==d[u]+1&&e[i].c) {
-            int f=dfs(v,min(mf,e[i].c));
-            e[i].c-=f;
-            e[i^1].c+=f;//更新残留网
-            sum+=f;//累加u的流出流量
-            mf-=f;//减少u的剩余容量
-            if (mf==0) break;//余量优化
+
+    ll dfs(int u, int t, ll flow) {
+        if (u == t)
+            return flow;
+
+        for (int &i = cur[u]; i < (int)g[u].size(); i++) {
+            Edge &e = g[u][i];
+
+            if (e.cap > 0 && level[e.to] == level[u] + 1) {
+                ll f = dfs(e.to, t, min(flow, e.cap));
+
+                if (f > 0) {
+                    e.cap -= f;
+                    g[e.to][e.rev].cap += f;
+                    return f;
+                }
+            }
         }
-    }
-    if (sum==0) d[u]=0;//残枝优化
-    return sum;
-}
 
-// O ( n * n * m )
-int dinic() {
-    int flow=0;
-    while (bfs()) {
-        memcpy(cur,h,sizeof h);
-        flow+=dfs(S,INF);
+        return 0;
     }
-    return flow;
-}
 
-void mincut(int u) {
-    vis[u]=1;
-    for (int i=h[u];i!=-1;i=e[i].ne) {
-        int v=e[i].v;
-        if (!vis[v]&&e[i].c) mincut(v);
+    ll maxflow(int s, int t) {
+        ll flow = 0;
+
+        while (bfs(s, t)) {
+            fill(cur.begin(), cur.end(), 0);
+
+            while (ll f = dfs(s, t, INF)) {
+                flow += f;
+            }
+        }
+
+        return flow;
     }
-}
 
-void solve()
-{
-    memset(h,-1,sizeof h);
-    cin>>n>>m>>S>>T;
-    vector<int> a(n+5),b(n+5);
-    int BASE=m+1; // BASE > m
-    for (int i=1;i<=m;i++) {
-        int w;
-        cin>>a[i]>>b[i]>>w;
-        add(a[i],b[i],w*BASE+1);
-        add(b[i],a[i],0);
+    // 最大流跑完后调用
+    // vis[i] = 1：最小割 S 侧
+    // vis[i] = 0：最小割 T 侧
+    vector<int> mincut(int s) {
+        vector<int> vis(n, 0);
+        queue<int> q;
+
+        vis[s] = 1;
+        q.push(s);
+
+        while (!q.empty()) {
+            int u = q.front();
+            q.pop();
+
+            for (auto &e : g[u]) {
+                if (e.cap > 0 && !vis[e.to]) {
+                    vis[e.to] = 1;
+                    q.push(e.to);
+                }
+            }
+        }
+
+        return vis;
     }
-    //最小割最大流定理
-    int ans=dinic();
-    cout<<ans/BASE<<' '<<ans%BASE<<endl; // 最小割(最大流）大小 最小割的边数
-    //最小割的划分
-    mincut(S);
-    for (int i=1;i<=n;i++) {
-        if (vis[i]) cout<<i<<' '; // S
-        cout<<endl;
+};
+
+
+void solve() {
+    int n, m, S, T;
+    cin >> n >> m >> S >> T;
+
+    Dinic mf(n + 1);
+
+    for (int i = 0; i < m; i++) {
+        int u, v;
+        ll w;
+        cin >> u >> v >> w;
+
+        mf.addEdge(u, v, w);
     }
-    for (int i=1;i<=n;i++) {
-        if (!vis[i]) cout<<i<<' '; // T
-        cout<<endl;
+
+    ll flow = mf.maxflow(S, T);
+
+    cout << "mincut = " << flow << '\n';
+
+    auto side = mf.mincut(S);
+
+    cout << "S side: ";
+    for (int i = 1; i <= n; i++) {
+        if (side[i])
+            cout << i << ' ';
     }
-}
+    cout << '\n';
 
-signed main()
-{
-    ios::sync_with_stdio(false);
-    cin.tie(0);
-    cout.tie(0);
-
-    int _t=1;
-    //cin>>_t;
-    while (_t--) solve();
-
-    return 0;
+    cout << "T side: ";
+    for (int i = 1; i <= n; i++) {
+        if (!side[i])
+            cout << i << ' ';
+    }
+    cout << '\n';
 }
