@@ -142,3 +142,136 @@ struct LCSeg {
 //     int new_b = dp[i] + a * pre[i] * pre[i] - b * pre[i] + c;
 //     seg.addLine(new_k, new_b);
 // }
+// ==================== 分数版李超线段树 ====================
+// k、b 都可以是分数 p/q。查询点为整数，所有比较用 __int128 精确完成，没有浮点误差。
+// 下面实现的是最小值版本；若需要最大值，把 add 和 ask 中标注“方向”处的比较符号反过来即可。
+struct Frac {
+    __int128 p, q; // 表示 p/q，始终 q > 0 且已约分
+
+    Frac(__int128 p = 0, __int128 q = 1) : p(p), q(q) { norm(); }
+
+    static __int128 gcd128(__int128 a, __int128 b) {
+        if (a < 0) a = -a;
+        if (b < 0) b = -b;
+        while (b) {
+            __int128 t = a % b;
+            a = b;
+            b = t;
+        }
+        return a;
+    }
+
+    void norm() {
+        if (q == 0) { // 实际使用中不会出现分母为 0
+            exit(1);
+        }
+        if (q < 0) {
+            p = -p;
+            q = -q;
+        }
+        if (p == 0) {
+            q = 1;
+            return;
+        }
+        __int128 g = gcd128(p, q);
+        p /= g;
+        q /= g;
+    }
+
+    Frac operator*(long long x) const { return Frac(p * x, q); }
+    Frac operator+(const Frac& o) const { return Frac(p * o.q + o.p * q, q * o.q); }
+    Frac operator-() const { return Frac(-p, q); }
+
+    bool operator<(const Frac& o) const { return p * o.q < o.p * q; }
+    bool operator>(const Frac& o) const { return p * o.q > o.p * q; }
+    bool operator==(const Frac& o) const { return p == o.p && q == o.q; }
+    bool operator<=(const Frac& o) const { return !(*this > o); }
+    bool operator>=(const Frac& o) const { return !(*this < o); }
+
+    long long toLL() const { return (long long)(p / q); }
+    double toDouble() const { return (double)p / (double)q; }
+};
+
+struct LineFrac {
+    Frac k, b;
+    bool exists;
+    // 空节点初始化为一个足够大的值，用于最小值版本
+    // [方向] 最小值用 +INF；若改最大值，这里改为足够小的值，如 -(1LL << 62)
+    LineFrac(Frac k = 0, Frac b = Frac(1LL << 62, 1)) : k(k), b(b), exists(false) {}
+
+    Frac cal(int x) const {
+        return k * x + b;
+    }
+};
+
+struct LCSegFrac {
+    int n;
+    vector<LineFrac> tr;
+
+    LCSegFrac(int n) : n(n), tr(n * 4) {}
+
+    void add(int p, int l, int r, LineFrac val) {
+        if (!tr[p].exists) {
+            tr[p] = val;
+            tr[p].exists = true;
+            return;
+        }
+        int mid = l + r >> 1;
+        // 最小值版本：中点更小/更优的留在当前节点
+        // [方向] 最小值：当前中点值 > 新线中点值时交换（让更小的留在当前）
+        if (tr[p].cal(mid) > val.cal(mid)) swap(tr[p], val);
+        if (l == r) return;
+
+        // [方向] 最小值：新线在左端点更小则往左走（改最大值时改为 >）
+        if (val.cal(l) < tr[p].cal(l)) {
+            add(p << 1, l, mid, val);
+        // [方向] 最小值：新线在右端点更小则往右走（改最大值时改为 >）
+        } else if (val.cal(r) < tr[p].cal(r)) {
+            add(p << 1 | 1, mid + 1, r, val);
+        }
+    }
+
+    // 插入全局直线 y = k*x + b，k 和 b 都可以是分数
+    void addLine(const Frac& k, const Frac& b) {
+        LineFrac l(k, b);
+        l.exists = true;
+        add(1, 1, n, l);
+    }
+
+    // 直接传 p/q 形式：y = (p/q)*x + (u/v)
+    void addLine(long long p, long long q, long long u, long long v) {
+        addLine(Frac(p, q), Frac(u, v));
+    }
+
+    // 插入一条在 [L,R] 范围内的线段
+    void addSeg(int p, int l, int r, int ql, int qr, LineFrac val) {
+        if (ql <= l && r <= qr) {
+            add(p, l, r, val);
+            return;
+        }
+        int mid = l + r >> 1;
+        if (ql <= mid) addSeg(p << 1, l, mid, ql, qr, val);
+        if (mid < qr) addSeg(p << 1 | 1, mid + 1, r, ql, qr, val);
+    }
+
+    void addSeg(int ql, int qr, const Frac& k, const Frac& b) {
+        LineFrac l(k, b);
+        l.exists = true;
+        addSeg(1, 1, n, ql, qr, l);
+    }
+
+    Frac ask(int p, int l, int r, int x) {
+        // [方向] 最小值：空节点返回 +INF（改最大值时改为 -INF）
+        if (x < l || x > r) return Frac(1LL << 62, 1);
+        Frac res = tr[p].exists ? tr[p].cal(x) : Frac(1LL << 62, 1);
+        if (l == r) return res;
+        int mid = l + r >> 1;
+        // [方向] 最小值：合并时取 min（改最大值时改为 max）
+        if (x <= mid) return min(res, ask(p << 1, l, mid, x));
+        return min(res, ask(p << 1 | 1, mid + 1, r, x));
+    }
+
+    Frac ask(int x) {
+        return ask(1, 1, n, x);
+    }
+};
