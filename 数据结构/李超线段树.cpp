@@ -62,10 +62,12 @@ struct LCSeg{
         if(ql <= mid) addSeg(p << 1, l, mid, ql, qr, val);
         if(mid < qr) addSeg(p << 1 | 1, mid + 1, r, ql, qr, val);
     }   
-    // 查询 x 处的最大 y 值
+    // 查询 x 处的最小 y 值（最大值版本把 return 里的 min 改成 max）
     double ask(int p, int l, int r, int x){
-        if(x < l || x > r || !tr[p].exists) return INF;//更改处-INF
-        double res = tr[p].cal(x);
+        if(x < l || x > r) return INF;//更改处-INF
+        // 注意：本节点为空时不能直接 return！addSeg 只把线段存在被完全覆盖的节点上，
+        // 祖先可能为空、而子孙节点里存着线段，必须继续往下递归才能查到。
+        double res = tr[p].exists ? tr[p].cal(x) : INF;//更改处-INF
         if(l == r) return res;
         int mid = l + r >> 1;
                         //更改处 max
@@ -120,9 +122,9 @@ struct LCSeg {
     }
 
     int ask(int p, int l, int r, int idx) {
-        if (!tr[p].exists) return -INF;
+        // 同样：空节点不能提前 return，子孙节点里可能存着线段（若以后加了 addSeg 就会错）
         int cur_x = coords[idx - 1];
-        int res = tr[p].cal(cur_x);
+        int res = tr[p].exists ? tr[p].cal(cur_x) : -INF;
         if (l == r) return res;
         
         int mid = l + r >> 1;
