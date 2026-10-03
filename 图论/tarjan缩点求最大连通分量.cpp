@@ -9,7 +9,7 @@ vector<int> dfn(MAXN);			//原图dfn序，用于构建scc
 vector<int> low(MAXN);			//节点的scc根节点，用于构建scc
 stack<int> stk;					//栈，用于构建scc
 vector<int> instk(MAXN);		//节点是否入栈，用于构建scc
-vector<int> itscc(MAXN);		//ind to scc 原图点角标转新图点角标
+vector<int> scc(MAXN);		//ind to scc 原图点角标转新图点角标
 vector<int> sccval(MAXN);		//新图点权
 vector<vector<int>> sccgra(MAXN);	//新图邻接表
 int cur=1;						//维护原图dfn值
@@ -41,7 +41,7 @@ void tarjan(int ind){
             c=stk.top();
             stk.pop();
             instk[c]=0;
-            itscc[c]=curscc;
+            scc[c]=curscc;
             sccval[curscc]+=val[c];
         }while(c!=ind);
         curscc++;
@@ -58,8 +58,8 @@ void build(){
     for(int i=0;i<m;i++){
         int a=edge[i].first;
         int b=edge[i].second;
-        if(itscc[a]!=itscc[b]){
-            sccgra[itscc[a]].push_back(itscc[b]);
+        if(scc[a]!=scc[b]){
+            sccgra[scc[a]].push_back(scc[b]);
         }
     }
 }
