@@ -208,7 +208,13 @@ namespace Pseg{
     // int n, q;
     // vector<ll> a, vec;
 
+    // 放全局不会爆栈
+    // PSeg pst;
+
     // void solve(){
+    //     // 快捷清空
+    //     pst.top=0;
+    
     //     cin >> n >> q;
     //     a.assign(n + 1, 0);
     //     for(int i = 1; i <= n; i++){
@@ -220,7 +226,7 @@ namespace Pseg{
     //     vec.erase(unique(vec.begin(), vec.end()), vec.end());
     //     int m = vec.size();
 
-    //     PSeg pst;
+    //     //这句话很关键！！！！！
     //     pst.root[0] = pst.buildEmpty(0, 1, m);
 
     //     for(int i = 1; i <= n; i++){
