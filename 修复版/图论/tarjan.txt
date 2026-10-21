@@ -1,0 +1,29 @@
+void tarjan(int u)
+{
+  dfn[u]=low[u]=++timestm;
+  stk[++top]=u,in_stk[u]=true;
+  for(int v:arr[u])
+  {
+    if(!dfn[v])
+    {
+      tarjan(v);
+      low[u]=min(low[u],low[v]);
+    }
+    else if(in_stk[v])
+    {
+      low[u]=min(low[u],dfn[v]);
+    }
+  }
+  if(dfn[u]==low[u])
+  {
+    int y;
+    ++scc_cnt;
+    do
+    {
+      y=stk[top--];
+      in_stk[y]=false;
+      id[y]=scc_cnt;
+      siz[scc_cnt]++;
+    } while (y!=u);
+  }
+}
