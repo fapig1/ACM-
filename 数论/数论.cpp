@@ -437,15 +437,33 @@ vector<int> multiply_fft(vector<int>& A, vector<int>& B) {
 
 
 // ============================== NTT 快速数论变换 ==============================
-// 模数 NTT_MOD = 998244353 = 119 * 2^23 + 1 是质数，
-//   它减 1 后含足够多的因子 2，因此支持长度不超过 2^23 的 NTT。
-// G = 3 是该模数的一个原根，GI 是 G 的逆元（给逆变换当单位根）。
-// 与 FFT 相比: NTT 全程整数运算、无浮点误差，但每个系数都会先对 NTT_MOD 取模。
+// 前提: NTT 需要质数模数 p = c * 2^k + 1 (NTT 友好模数), 变换长度只支持 2 的幂且 ≤ 2^k。
+// 本模板: NTT_MOD = 998244353 = 119 * 2^23 + 1  →  长度上限 2^23 ≈ 8.4e6。
+//
+// (NTT_MOD, G) 是一对 (模数, 原根), 两者的关系是 NTT 的核心:
+//   1) 模 p 的乘法群 (Z/pZ)* 是循环群, 阶为 p−1 = 119·2^23;
+//   2) G = 3 是该群的一个"原根"(生成元): 3 的阶恰好等于 p−1
+//      (比 p−1 小的任何次幂都不等于 1), 所以 3 的各次幂能遍历全部非零元素;
+//   3) 只要 len | p−1, 则 w_len = G^((p−1)/len) mod p 就是 len 次本原单位根:
+//      w_len^len = G^(p−1) ≡ 1 (费马小定理), 且 w_len 的阶恰为 len,
+//      这正是 NTT 蝶形运算每一层 len 所用的旋转因子 (见下方 ntt 里 wlen);
+//   4) 逆变换需要逆单位根 w_len^{-1} = (G^{-1})^((p−1)/len),
+//      因此定义 GI = G^{-1} = 332748118 (3·332748118 ≡ 1 mod p);
+//   5) 一句话总结: 模数决定"能变换多长"(看 p−1 里因子 2 的个数),
+//      原根决定"具体用哪个单位根"(由原根的幂次生成)。
+//
+// 注意: 换模数必须同步换原根。常用 (模数, 原根) 组合 (3 是这些模数的公共原根, 非巧合):
+//   167772161  = 5·2^25 + 1   → 长度上限 2^25
+//   469762049  = 7·2^26 + 1   → 长度上限 2^26
+//   998244353  = 119·2^23 + 1 → 长度上限 2^23 (本模板)
+//   1004535809 = 479·2^21 + 1 → 长度上限 2^21
+// 原根判定法: 对 p−1 的每个质因子 q, 若 g^((p−1)/q) ≢ 1 (mod p), 则 g 是原根。
+// 与 FFT 相比: NTT 全程整数运算、无浮点误差, 但每个系数都会先对 NTT_MOD 取模。
 // 用法: 多项式系数按升幂存入 vector<int>，直接调用 multiply_ntt(A, B) 即可。
 // 依赖上方通用快速幂 ksm。
 const int NTT_MOD = 998244353;
-const int G = 3;          // 998244353 的一个原根
-const int GI = 332748118; // G 在模 NTT_MOD 下的逆元
+const int G = 3;          // NTT_MOD 的原根 (生成元): w_len = G^((p-1)/len)
+const int GI = 332748118; // G 的逆元: 逆变换用 w_len^{-1} = GI^((p-1)/len)
 
 // 位逆序表: ntt_rev[i] = i 按 log2(n) 位反转后的下标，变换前按当前长度 n 更新
 vector<int> ntt_rev;
@@ -605,6 +623,88 @@ int div_block_sum(int n){
     return ans;
 }
 // 推广: Σ_{i=1}^{min(n,m)} floor(n/i) * floor(m/i) 同理按 r = min(n/(n/l), m/(m/l)) 分段
+
+
+// ============================== 杜教筛 ==============================
+// 用途: 线性筛 O(n) 只能处理 n ≤ 1e7~1e8; 杜教筛在 O(n^{2/3}) 内求积性函数前缀和
+//       S(n) = Σ_{i=1}^n f(i), n 可到 1e9 ~ 1e10 (更大需调阈值并注意内存)。
+// 原理:
+//   选 g 使 h = f * g (狄利克雷卷积) 的前缀和 H(n) = Σ_{i≤n} h(i) 能 O(1) 求, 由
+//       H(n) = Σ_{d=1}^n g(d) S(⌊n/d⌋)  移项得
+//       S(n) = (H(n) − Σ_{d=2}^n g(d) S(⌊n/d⌋)) / g(1)
+//   右边 Σ 用整除分块压成 O(√n) 段; 小值 v ≤ T 由线性筛预处理。
+// 常见配对: (μ, 1)     → h = ε,    H(n) = 1          (梅滕斯函数)
+//           (φ, 1)     → h = id,   H(n) = n(n+1)/2
+//           (μ·id^k, id^k) → h = ε
+// 记忆化不需要哈希表: 递归查询的键全是 ⌊N/i⌋ 形式 (⌊⌊N/a⌋/b⌋ = ⌊N/(ab)⌋),
+//   只有 2√N 个不同值; 键 v ≤ T 查线性筛前缀, 键 v > T 存 memo[N/v] (N/v < N/T, 下标安全)。
+//   注意"大键换小下标": 进记忆化分支的键必然 v > T, 所以下标 N/v < N/T 很小;
+//   例如 N=1e9, T≈1e6 时, v=2 直接查 smu[2], 大键 v=1e9/5e8 的下标只有 1/2,
+//   数组只开 N/T+2 ≈ 1002 个元素, 绝不按 N 或按 v 开。
+//   注意用 vis 标记"已算过"而不是看值是否为 0 —— μ 前缀和可以真的等于 0!
+// 复杂度: 阈值 T = n^{2/3} 时 O(n^{2/3}); T 越大预处理越重、递归越轻。
+// 使用示例:
+//   Dujiao dj; dj.init(1e9);
+//   auto [smu, sphi] = dj.calc(1e9);   // smu = Σ_{i≤1e9} μ(i) mod 1e9+7, sphi 同理
+// 若要求精确值(不取模): 去掉 calc 中所有 % mod 即可 (注意 φ 前缀和 n 大时会超 long long)。
+struct Dujiao {
+    long long N;                            // 目标上界
+    long long T;                            // 阈值: 线性筛预处理到 T, 键 v > T 走记忆化
+    vector<int32_t> mu, phi, smu, sphi;     // 小范围前缀 (int32 省内存)
+    vector<long long> memo_mu, memo_phi;    // 大键记忆化: 下标 N/v
+    vector<char> vis;                       // 已算标记 (不能拿值==0 判断!)
+
+    void init(long long n){
+        N = n;
+        T = min((long long)pow((long double)N, 2.0 / 3.0) + 1, 5000000LL); // n^{2/3}, 上限 5e6
+        if(T > N) T = N;                    // N 很小时直接全筛 其实不要也可以, 神金ds非要保护 N=1 少开一个字节空间
+        mu.assign(T + 1, 0); phi.assign(T + 1, 0);
+        smu.assign(T + 1, 0); sphi.assign(T + 1, 0);
+        vector<int32_t> nop(T + 1, 0);
+        vector<long long> pr;
+        mu[1] = 1; phi[1] = 1;
+        for(long long i = 2; i <= T; i++){
+            if(!nop[i]){ pr.push_back(i); mu[i] = -1; phi[i] = i - 1; }
+            for(long long p : pr){
+                long long t = i * p;
+                if(t > T) break;
+                nop[t] = 1;
+                if(i % p == 0){ mu[t] = 0; phi[t] = phi[i] * p; break; }
+                mu[t] = -mu[i];
+                phi[t] = phi[i] * (p - 1);
+            }
+        }
+        for(long long i = 1; i <= T; i++){
+            smu[i] = ((long long)smu[i - 1] + mu[i] + mod) % mod;
+            sphi[i] = (sphi[i - 1] + phi[i]) % mod;
+        }
+        long long sz = N / T + 2;           // 键 v > T ⟹ N/v < N/T, 数组只开 N/T 大小
+        memo_mu.assign(sz, 0); memo_phi.assign(sz, 0); vis.assign(sz, 0);
+    }
+
+    // 返回 (Σ_{i=1}^v μ(i), Σ_{i=1}^v φ(i)) 均对 mod 取模
+    pair<long long, long long> calc(long long v){
+        if(v <= T) return {smu[v], sphi[v]};
+        long long idx = N / v;              // 大键的下标变换, O(1) 存取
+        if(vis[idx]) return {memo_mu[idx], memo_phi[idx]};
+        vis[idx] = 1;
+        long long m = 1;                    // S_μ(v) = 1 − Σ_{d=2..v} S_μ(⌊v/d⌋)
+        long long p = (long long)((__int128)v * (v + 1) / 2 % mod); // S_φ(v) = v(v+1)/2 − Σ ...
+        for(long long l = 2; l <= v; ){
+            long long q = v / l, r = v / q; // 整除分块: [l,r] 内 ⌊v/d⌋ 都等于 q
+            long long len = (r - l + 1) % mod;
+            auto [sm, sp] = calc(q);
+            m = (m - len * sm % mod + mod) % mod;
+            p = (p - len * sp % mod + mod) % mod;
+            l = r + 1;
+        }
+        memo_mu[idx] = m; memo_phi[idx] = p;
+        return {m, p};
+    }
+};
+// 验证过的取值: M(10^6)=212, M(10^7)=1037, M(10^8)=1928, M(10^9)=-222, M(10^10)=-33722;
+//              Σ_{i≤10^6} φ(i)=303963552392, Σ_{i≤10^7} φ(i)=30396356427242
+// 实测耗时: n=1e9 约 27ms, n=1e10 约 135ms
 
 
 // 类欧几里得算法 log求和 sum = i(0 - n-1) floor [(a*i + b) / c]
