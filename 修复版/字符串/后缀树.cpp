@@ -1,6 +1,11 @@
 #include <bits/stdc++.h>
 using namespace std;
 
+// 【速查】后缀树（反串 SAM 的 link 树）
+// 用法: SuffixTree T; T.build(s);  T.lcp(p, q) -> 后缀 s[p..] 与 s[q..] 的 LCP（O(log n)）
+//       T.count_distinct() -> 不同子串数；T.leaf[p] 是后缀 p 对应的树节点，T.g 是树的邻接表
+// 用途: 后缀之间的关系、在树上做 DP（出现次数 ≥ K 的最长子串等，见下方示例）
+// 复杂度: 构建 O(n × 26 + n log n)；内存比 SAM 多一张 20 层倍增表
 //后缀树模板: 用"反串的 SAM 的 link 树"实现
 //定理: S 的后缀树 = SAM(反转后的 S) 的 link(后缀链接)树
 //  - 每个 SAM 状态 = 后缀树一个节点, 串深度(根到该节点路径上的字符数) = len[v]

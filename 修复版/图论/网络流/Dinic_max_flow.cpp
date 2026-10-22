@@ -4,6 +4,9 @@ using namespace std;
 using ll = long long;
 const ll INF = 4e18;
 
+// 【速查】Dinic 最大流（单路增广 + 当前弧优化）
+// 用法: Dinic mf(点数); mf.addEdge(u, v, cap);  ll f = mf.maxflow(s, t);   // 点编号 0..点数-1，1-based 就开 n+1
+// 复杂度: 一般 O(n²m)，实际很快；二分图上 O(m√n)
 struct Dinic {
     struct Edge {
         int to, rev;

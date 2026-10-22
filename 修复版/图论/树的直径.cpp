@@ -7,6 +7,10 @@ int n;
 vector<int> g[N];
 int dist[N];
 
+// 【速查】树的直径（两次 DFS）
+// 用法: s = get_far(1); t = get_far(s);  直径 = dist[t]，端点是 s、t
+// 注意: 边权非负才能用两次 DFS（有负边权用树形 DP）；本版无边权，有边权把 +1 改成 +w
+// 复杂度: O(n)；递归，深链注意爆栈
 void dfs(int u, int fa) {
     for (int v : g[u]) {
         if (v == fa) continue;

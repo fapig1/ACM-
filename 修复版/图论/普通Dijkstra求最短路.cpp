@@ -10,6 +10,10 @@ int x, y, z;
 vector<pair<int, int> >g[N];
 int dist[N];
 bool st[N];
+// 【速查】朴素 Dijkstra（稠密图）
+// 用法: g[x].push_back({y, w}); dij()
+// 返回: 1 到 n 的最短路，到不了返回 -1；边权必须非负
+// 复杂度: O(n² + m)，n ≤ 几千、m 接近 n² 时用
 //普通版dijkstra求单源最短路
 int dij()
 {

@@ -10,6 +10,10 @@ int x, y, z;
 vector<pair<int, int>>g[N];
 int dist[N];
 bool st[N];
+// 【速查】SPFA 单源最短路（可有负边，无负环）
+// 用法: g[x].push_back({y, w}); spfa()
+// 返回: 1 到 n 的最短路，到不了返回 0x3f3f3f3f3f3f3f3f；dist[] 是到所有点的距离
+// 复杂度: 一般很快，最坏 O(nm)（会被卡）；没有负边请用 Dijkstra
 //spfa求最短路
 int spfa()
 {

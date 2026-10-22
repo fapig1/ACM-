@@ -2,6 +2,10 @@
 using namespace std;
 #define int long long
 
+// 【速查】字符串双哈希
+// 用法: StringHash h(s);  h.get(l, r) -> pair 双哈希（0-based 闭区间）；两段 pair 相等即认为子串相等
+// 用途: O(1) 比较子串；配合二分求 LCP、最长回文、循环同构等
+// 复杂度: 预处理 O(n)，查询 O(1)；串长 ≤ MAXN(1e6)
 //字符串哈希
 struct StringHash {
     static const int MAXN = 1e6 + 5;
@@ -68,6 +72,10 @@ struct StringHash {
     }
 */
 
+// 【速查】二维矩阵双哈希
+// 用法: MatrixHash h(mat);  h.get(r1, c1, r2, c2) -> 子矩阵双哈希（0-based 闭区间）
+// 用途: 二维子矩阵匹配 / 判重；mat 可以是 vector<string>
+// 复杂度: 预处理 O(RC)，查询 O(1)；R、C ≤ 1005
 struct MatrixHash {
     static const int MAXN = 1005; // 最大行数
     static const int MAXM = 1005; // 最大列数

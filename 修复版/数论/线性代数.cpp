@@ -24,6 +24,10 @@ const int mod = 1e9 + 7;
 // 复杂度: 单次插入 O(64)，空间 O(64)。
 // 注意: 这里只做“行阶梯”插入；若要查询第 k 小异或和，还需再消成行最简并特判 0。
 vector<int> p(64);
+// 【速查】异或线性基
+// 用法: insert(x) 插入（返回是否让秩 +1）；最大异或和: ans = 0; for i 从 63 到 0: ans = max(ans, ans ^ p[i])
+// 用途: 一堆数里选若干个异或出最大值 / 判断 x 能否被异或出来
+// 复杂度: 每次 O(64)
 bool insert(int x){
     for(int i = 63; i >= 0; i--){
         if(!(x >> i)) continue;
@@ -36,6 +40,10 @@ bool insert(int x){
     return false;
 }
 
+// 【速查】矩阵（加减乘、转置、快速幂，mod 1e9+7）
+// 用法: mat a(n) 方阵 / mat a(n, m)；a.a[i][j] 0-based；a * b、a + b；ksm(a, k) 矩阵快速幂
+// 用途: 线性递推加速（如 1e18 项斐波那契）
+// 复杂度: 乘法 O(n³)，快速幂 O(n³ log k)
 // 矩阵类 (0-based)：mat(n) 为 n×n 方阵，mat(n,m) 为 n 行 m 列零矩阵
 // 所有元素默认 0；算术运算全部对 mod 取模。
 // 注意: 运算符不做形状检查，调用方需保证:
@@ -126,6 +134,10 @@ mat ksm(mat x, int a){
 // 实数高斯消元 - 解线性方程组 (0-based)
 const double eps = 1e-9;
 
+// 【速查】实数高斯消元解线性方程组
+// 用法: a 为 n 行 (m+1) 列增广矩阵（最后一列是常数），gauss(a, n, m, ans)
+// 返回: 1 唯一解（写进 ans）/ 0 无解 / 2 无穷多解
+// 复杂度: O(n·m·min(n, m))
 // 解线性方程组：a 为 n 行 m+1 列增广矩阵（n 个方程，m 个未知数）
 // 返回 1 有唯一解并写入 ans，0 无解，2 有无穷多解。
 // 做法: 逐列选绝对值最大的行做主元（部分主元，减小误差），
@@ -164,6 +176,7 @@ int gauss(vector<vector<double>> a, int n, int m, vector<double> &ans){
     return 1;
 }
 
+// 【速查】实数行列式 det(a)，O(n³)
 // 实数行列式 (0-based)：高斯消元化为上三角，O(n^3)
 // 每次选列主元；交换两行时 det 变号；det = 上三角对角线乘积。
 // 主元绝对值 < eps 视为 0，直接返回 0（奇异）。
@@ -191,6 +204,7 @@ double det(vector<vector<double>> a){
     return res;
 }
 
+// 【速查】实数矩阵求逆：inv(a, b) 成功返回 true，逆矩阵写入 b；奇异返回 false。O(n³)
 // 实数矩阵求逆 (0-based)：用 Gauss-Jordan 消元把 [A | I] 化成 [I | A^{-1}]。
 // 矩阵奇异返回 false；否则逆矩阵写入 b（b 会被重新分配为 n×n）。
 // 复杂度 O(n^3)；同样使用部分主元控制误差，eps 判定同 gauss。
@@ -236,6 +250,9 @@ int qpow(int a, int b){
     return res;
 }
 
+// 【速查】模质数高斯消元（n 个未知数 n 个方程）
+// 用法: a 为 n 行 (n+1) 列增广矩阵，元素先规整到 [0, mod)；返回 1 唯一解 / 0 无解 / 2 无穷多解
+// 复杂度: O(n³)
 // 模质数高斯消元解线性方程组 (0-based)：a 为 n 行 n+1 列增广矩阵
 // 返回 1 有唯一解并写入 ans，0 无解，2 有无穷多解
 // 与实数版相同，但主元取第一个非零元；用费马小定理求逆元，要求 mod 为质数。
@@ -275,6 +292,7 @@ int gauss_mod(vector<vector<int>> a, int n, vector<int> &ans){
     return 1;
 }
 
+// 【速查】模质数行列式 det_mod(a)，元素在 [0, mod)，O(n³)
 // 模质数行列式 (0-based)：高斯消元化为上三角，O(n^3)
 // 交换两行时 res 变号（写成 mod-res）；主元为 0 则行列式为 0。
 int det_mod(vector<vector<int>> a){
@@ -306,6 +324,9 @@ int det_mod(vector<vector<int>> a){
     return res;
 }
 
+// 【速查】矩阵树定理：无向图生成树个数 (mod)
+// 用法: matrix_tree(n, edges)，点 0..n-1，edges 为无向边（可重边，自环忽略）；不连通返回 0
+// 复杂度: O(n³ + m)
 // ============================== 矩阵树定理 (Kirchhoff) ==============================
 // 无向图生成树计数：构造 Laplace 矩阵 L = D - A，删去任意一行一列后求行列式，
 // 其绝对值就是生成树个数（这里对 mod 取模，mod 为质数）。

@@ -5,6 +5,11 @@ using namespace std;
 int n, m, k, x, y, z;
 const int N = 205;
 int d[N][N];
+// 【速查】Floyd 全源最短路
+// 用法: d 先 memset 0x3f、d[i][i]=0，读边 d[x][y]=min(d[x][y], w)；floyd() 后 d[i][j] 即最短路
+// 判不可达: d[x][y] > 0x3f3f3f3f3f3f3f3fLL / 2（long long 下 memset 0x3f 的值）
+// 可有负边，不能有负环
+// 复杂度: O(n³)，n ≤ 500 左右
 //floyd求多源最短路
 void floyd()
 {
@@ -36,7 +41,7 @@ signed main() {
     for (int i = 1; i <= k; i++)
     {
         cin >> x >> y;
-        if (d[x][y] > 0x3f3f3f3f/2) cout << "impossible" << endl;
+        if (d[x][y] > 0x3f3f3f3f3f3f3f3fLL / 2) cout << "impossible" << endl;   // 10.22 修复: 原版 0x3f3f3f3f/2，距离 > 5e8 被误判
         else
             cout << d[x][y] << endl;
     }

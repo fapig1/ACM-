@@ -4,11 +4,15 @@
 using namespace std;
 
 const int N=510;
-const int INF=0x3f3f3f3f;
+const int INF=0x3f3f3f3f3f3f3f3fLL;   // 与 memset 0x3f 在 long long 下的值一致
 int n,m;
 int g[N][N];
 int dist[N];
 bool st[N];
+// 【速查】朴素 Prim 最小生成树（稠密图）
+// 用法: g 先 memset 0x3f，g[a][b] = g[b][a] = min(g[a][b], w)；prim()
+// 返回: MST 权值和；图不连通返回 INF
+// 复杂度: O(n²)，n ≤ 几千的稠密图
 //Prim算法求最小生成树
 int prim()
 {
@@ -25,7 +29,7 @@ int prim()
         t=j;
       }
     }
-    if(dist[t]==0x3f3f3f3f) 
+    if(dist[t]>=INF)   // 10.22 修复: 原版和 0x3f3f3f3f 比较，long long 下永远不等，不连通时输出乱码
     {
       return INF;
     }

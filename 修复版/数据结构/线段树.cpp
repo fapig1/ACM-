@@ -1,5 +1,12 @@
 #include <bits/stdc++.h>
 using namespace std;
+// 【速查】区间加乘线段树（取模区间和）
+// 用途: 区间乘 x、区间加 x、查区间和 (mod)，经典 P3373
+// 用法: Seg sg(n, mod); sg.build(1, 1, n, a);          // a 下标 1..n
+//       sg.updateMul(1, 1, n, l, r, x);  sg.updateAdd(1, 1, n, l, r, x);
+//       sg.ask(1, 1, n, l, r) -> 区间和 % mod；多组数据先 sg.clear()
+// 注意: x 要先规整到 [0, mod)，负数会算出负值
+// 复杂度: 建树 O(n)，每次修改/查询 O(log n)
 //线段树，支持区间加与区间乘
 struct Seg{
     int n, mod;
@@ -84,6 +91,10 @@ struct Seg{
     }
 };
 
+// 【速查】zkw 非递归线段树（单点赋值 + 区间最大值）
+// 用法: Tree t(n);  t.update(0, 0, 0, pos, val);  t.query(0, 0, 0, l, r)   // 前三个参数没用；1-based
+// 返回: [l, r] 的最大值；l > r 返回 0。初值全 0，只适合非负值
+// 复杂度: O(log n)，常数比递归版小
 //非递归线段树，适用于单点修改区间查询的问题，常数更小
 struct Tree {
     int sz;                // 大于值域上限的 2 的幂

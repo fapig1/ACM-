@@ -8,6 +8,11 @@ vector<int> state;      //右部已被左部匹配的状态
 vector<int> vis(MAXN);   //右部的vis数组，用来判环
 vector<vector<int>> vec; //从左部向右部建的有向边图
 int visnum=1;           //标记法记vis，节省时间
+// 【速查】匈牙利算法（二分图最大匹配）
+// 用法: 左部 1..n1，右部 1..n2；vec[u].push_back(v) 只建左→右；每个左点 visnum++ 后调 check(i)，成功 ans++
+// 结果: ans = 最大匹配数；state[v] = 与右点 v 匹配的左点
+// 常用: 最小点覆盖 = 最大匹配；最大独立集 = 点数 - 最大匹配；DAG 最小路径覆盖 = n - 最大匹配
+// 复杂度: O(n·m)；规模大（1e5 级）改用 Dinic
 int check(int ind){
     for(int i:vec[ind]){
         if(vis[i]<visnum){

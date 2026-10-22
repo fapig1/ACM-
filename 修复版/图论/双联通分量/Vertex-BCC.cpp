@@ -1,6 +1,11 @@
 #include <bits/stdc++.h>
 using namespace std;
 
+// 【速查】点双连通分量 + 割点（无向图）
+// 用途: 求割点；点双缩点 / 建圆方树
+// 用法: VertexBCC v(n); v.addEdge(a, b); v.build();
+// 结果: v.isCut[u]、v.bcc[i]（点集，割点会出现在多个点双里）、v.bccEdges[i]（边编号）
+// 复杂度: O(n + m)；孤立点单独成一个点双；点 1-based
 /*
  * Vertex Biconnected Components (VBCC)
  *

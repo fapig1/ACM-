@@ -2,6 +2,9 @@
 using namespace std;
 using ll = long long;
 const ll INF = 4e18;
+// 【速查】EK 最大流（BFS 找增广路）
+// 用法: EdmondsKarp mf(点数); mf.addEdge(u, v, cap); ll f = mf.maxflow(s, t);
+// 复杂度: O(n·m²)，好写但慢，比赛优先用 Dinic
 struct EdmondsKarp {
     struct Edge {
         int to, rev;

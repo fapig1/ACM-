@@ -2,6 +2,10 @@
 using namespace std;
 using ll = long long;
 const ll INF = 4e18;
+// 【速查】最小割（Dinic + 找割集）
+// 用法: Dinic mf(点数); mf.addEdge(u, v, cap); ll cut = mf.maxflow(s, t);  auto side = mf.mincut(s);
+// 结果: 最小割 = 最大流；side[u] = 1 表示 u 在 S 侧；割边 = 从 S 侧指向 T 侧的原边
+// 复杂度: 最大流 + O(n + m)
 struct Dinic {
     struct Edge {
         int to, rev;

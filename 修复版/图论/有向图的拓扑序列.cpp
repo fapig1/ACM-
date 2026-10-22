@@ -10,6 +10,10 @@ vector<int> g[N];
 int d[N];
 queue<int> q;
 
+// 【速查】拓扑排序（Kahn / BFS 入度法）
+// 用法: g[x].push_back(y); d[y]++;  然后 top()
+// 返回: true 时 arr 是一个拓扑序；false 说明有环（arr.size() < n）
+// 复杂度: O(n + m)；想要字典序最小的拓扑序把 queue 换成小根堆
 bool top()
 {
     for (int i = 1; i <= n; i++)

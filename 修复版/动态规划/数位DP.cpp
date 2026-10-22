@@ -2,6 +2,11 @@
 #define int long long
 using namespace std;
 
+// 【速查】数位 DP（记忆化搜索框架）
+// 用途: 统计 [l, r] 内满足某种"按位条件"的数的个数
+// 用法: 改 base(进制)、trans(状态转移)、valid(剪枝)、check(终态是否合法)、f 的维度；
+//       答案 = calc(r) - calc(l - 1)；init() 清空记忆化（状态和上界无关时只需调一次）
+// 复杂度: O(位数 × 状态数 × base)
 // 需要改：维度根据状态设计
 // f[dep][state]：剩余 dep 位，状态为 state，且 !tight && started 时的方案数
 // 这个状态不能存有前效性的状态，即如果状态与sz有关，即每一个不同的sz对应的f可能不同时，可以尝试多次调用init或者将所有数补全到最高位即可

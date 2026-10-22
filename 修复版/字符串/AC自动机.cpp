@@ -1,6 +1,12 @@
 #include <bits/stdc++.h>
 using namespace std;
 
+// 【速查】AC 自动机（多模式串匹配）
+// 用法: ac.init(); ac.insert(s, id[i]); ac.build();          // ac 是全局对象，id[i] 返回模式串编号
+//       ac.query(t); ac.topu();  -> ac.ans[id[i]] = 第 i 个模式串在 t 中出现次数
+//       ac.query_first(t) -> ac.first[id] 首次出现位置；ac.covered(t) -> t 能否被模式串完全覆盖
+// 复杂度: 建立 O(Σ|s| × 26)，匹配 O(|t|)；模式串总长 ≤ SIZE(2e5)，只支持小写字母
+// 多组数据: 每组开头调用 init() 即可
 //AC自动机模板
 // 结构: Trie + fail 指针; 文本在自动机上跑, 状态 u = 当前文本前缀的最长后缀
 // 关键: fail[u] 指向"u 代表串的最长真后缀所在状态", build 时补齐 son 转移, 失配自动跳 fail
@@ -25,7 +31,7 @@ struct AC {
 
         void init() {
             memset(son, 0, sizeof(son));
-            len = ans = fail = idx = 0;
+            len = ans = fail = idx = du = 0;   // 10.22 修复: 原版不清 du，多组数据复用时依赖上一组跑过 topu
         }
     };
 

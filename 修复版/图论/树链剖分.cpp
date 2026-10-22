@@ -67,6 +67,11 @@ struct Seg{
 
 };
 
+// 【速查】树链剖分（重链剖分 + 线段树）
+// 用途: 树上路径加/路径和、子树加/子树和、LCA
+// 用法: HLD h(n); h.addEdge(u, v); h.build(a, root);       // a 为 1-based 点权
+//       h.updatePath(u, v, x)  h.askPath(u, v)  h.updateTree(u, x)  h.askTree(u)  h.getLCA(u, v)  h.getDist(u, v)
+// 复杂度: 预处理 O(n)，路径操作 O(log² n)，子树操作 O(log n)
 //树链剖分
 struct HLD{
     int n, timer;

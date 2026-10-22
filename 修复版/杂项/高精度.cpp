@@ -3,6 +3,11 @@
 #include <algorithm>
 using namespace std;
 
+// 【速查】高精度（非负整数字符串）
+// 用法: addBigNumbers(a, b) / subtractBigNumbers(a, b)（a<b 时结果带负号）
+//       multiplyBigNumbers(a, b) / divideBigNumbers(a, d)（d 为 int，向下取整）
+// 注意: 只支持非负数输入，不要带前导零或符号
+// 复杂度: 加减 O(n)，乘 O(nm)，除以小整数 O(n)
 string removeLeadingZeros(string s){
     int pos = s.find_first_not_of('0');
     if(pos == string::npos) return "0";
@@ -12,8 +17,8 @@ string removeLeadingZeros(string s){
 string addBigNumbers(string num1, string num2){
     int maxLength = max(num1.size(), num2.size());
 
-    while(num1.size() < maxLength) num1 = "0" + num1;
-    while(num2.size() < maxLength) num2 = "0" + num2;
+    num1.insert(0, maxLength - num1.size(), '0');   // 10.22 修复: 原版逐位 "0"+s，位数差大时 O(n²)
+    num2.insert(0, maxLength - num2.size(), '0');
 
     string result = "";
 
@@ -49,8 +54,8 @@ string subtractBigNumbers(string num1, string num2){
 
     int maxLength = max(num1.size(), num2.size());
 
-    while(num1.size() < maxLength) num1 = "0" + num1;
-    while(num2.size() < maxLength) num2 = "0" + num2;
+    num1.insert(0, maxLength - num1.size(), '0');   // 10.22 修复: 原版逐位 "0"+s，位数差大时 O(n²)
+    num2.insert(0, maxLength - num2.size(), '0');
 
     string result = "";
 

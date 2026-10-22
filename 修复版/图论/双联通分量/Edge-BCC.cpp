@@ -1,6 +1,11 @@
 #include <bits/stdc++.h>
 using namespace std;
 
+// 【速查】边双连通分量 + 桥（无向图）
+// 用途: 求桥；把边双缩成点后得到一棵树（"桥树"）
+// 用法: EdgeBCC e(n); e.addEdge(u, v)（返回边编号 0..m-1）; e.build();
+// 结果: e.isBridge[id]、e.belong[u]（所属边双 0..bccCnt-1）、e.components[c]（点集）
+// 复杂度: O(n + m)；支持重边和自环；点 1-based
 /*
  * Edge Biconnected Components (EBCC)
  *

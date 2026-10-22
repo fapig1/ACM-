@@ -16,6 +16,13 @@ using namespace std;
 > Seg：区间乘/加/取模区间和（先乘后加复合标记）；Tree：zkw 非递归单点赋值区间 max（仅非负值域）。
 
 ```cpp
+// 【速查】区间加乘线段树（取模区间和）
+// 用途: 区间乘 x、区间加 x、查区间和 (mod)，经典 P3373
+// 用法: Seg sg(n, mod); sg.build(1, 1, n, a);          // a 下标 1..n
+//       sg.updateMul(1, 1, n, l, r, x);  sg.updateAdd(1, 1, n, l, r, x);
+//       sg.ask(1, 1, n, l, r) -> 区间和 % mod；多组数据先 sg.clear()
+// 注意: x 要先规整到 [0, mod)，负数会算出负值
+// 复杂度: 建树 O(n)，每次修改/查询 O(log n)
 //线段树，支持区间加与区间乘
 struct Seg{
     int n, mod;
@@ -100,6 +107,10 @@ struct Seg{
     }
 };
 
+// 【速查】zkw 非递归线段树（单点赋值 + 区间最大值）
+// 用法: Tree t(n);  t.update(0, 0, 0, pos, val);  t.query(0, 0, 0, l, r)   // 前三个参数没用；1-based
+// 返回: [l, r] 的最大值；l > r 返回 0。初值全 0，只适合非负值
+// 复杂度: O(log n)，常数比递归版小
 //非递归线段树，适用于单点修改区间查询的问题，常数更小
 struct Tree {
     int sz;                // 大于值域上限的 2 的幂
@@ -150,6 +161,11 @@ struct Tree {
 > 【本次重写】原版 build 重定义无法编译，且带修改场景三重错误；已重写为联合递归（x树×y树乘积）+标记永久化，O(log n·log m)。
 
 ```cpp
+// 【速查】二维线段树（矩形加 + 矩形求和）
+// 用法: Seg2D sg(n, m);  sg.build(a);                  // a 为 (n+1)×(m+1)，1-based
+//       sg.update(x1, x2, y1, y2, v);  sg.ask(x1, x2, y1, y2) -> long long   // 先 x 范围再 y 范围！
+// 复杂度: 每次 O(log n · log m)
+// 内存: 两个 4n×4m 的 long long 矩阵，n=m=1000 约 256MB，大了就换二维树状数组
 /* ============================================================================
  * 二维线段树(矩形加 + 矩形求和) —— 联合递归 + 标记永久化版本
  * ----------------------------------------------------------------------------
@@ -314,6 +330,14 @@ struct Seg2D {
  *       scanf("%d") 读 int 变量会因类型不符得到垃圾值, main 请写 signed main。
  * ==========================================================================*/
 
+// 【速查】李超线段树 · double 最小值版
+// 用途: 不断插入直线/线段，查某个整数 x 处所有线中的最小 y（斜率优化 DP 的利器）
+// 用法: LC_double::LCSeg sg(n);              // x 取值 1..n
+//       sg.addLine(k, b);                      // 插入整条直线 y = kx + b
+//       Line L(k, b); L.exists = true; sg.addSeg(1, 1, n, l, r, L);   // 只在 [l,r] 生效的线段，exists 必须置 true
+//       sg.ask(1, 1, n, x) -> 最小 y；没有线时返回 INF(1e18)
+// 改最大值: 按代码里"更改处"把比较符号和 INF 反过来
+// 复杂度: 直线 O(log n)，线段 O(log² n)，查询 O(log n)
 // ==================== 版本1: double 最小值版 ====================
 namespace LC_double {
 
@@ -393,6 +417,11 @@ struct LCSeg{
 
 } // namespace LC_double
 
+// 【速查】李超线段树 · 离散化 int 最大值版
+// 用途: x 坐标很大/稀疏（如前缀和），先离散化再查最大 y
+// 用法: coords = 所有可能查询的 x，sort + unique；LC_disc::LCSeg sg(coords.size(), coords);
+//       sg.addLine(k, b);  sg.ask(1, 1, m, id) -> 最大 y，id = x 在 coords 里的下标 (1-based)
+// 复杂度: 插入/查询 O(log m)
 // ==================== 版本2: 离散化 int 最大值版 ====================
 namespace LC_disc {
 
@@ -466,6 +495,13 @@ struct LCSeg {
 
 } // namespace LC_disc
 
+// 【速查】李超线段树 · __int128 分数精确最小值版
+// 用途: k、b 是分数，double 会卡精度时用；查询点为整数
+// 用法: LC_frac::LCSegFrac sg(n);
+//       sg.addLine(p, q, u, v);               // y = (p/q)x + (u/v)
+//       sg.addSeg(l, r, Frac(p,q), Frac(u,v)); // 只在 [l,r] 生效
+//       sg.ask(x) -> Frac 最小值（.p/.q）
+// 复杂度: 同 double 版，常数大一些（__int128 + 约分）
 // ==================== 版本3: __int128 分数精确版 ====================
 namespace LC_frac {
 
@@ -614,6 +650,11 @@ struct LCSegFrac {
 #define ll long long
 #define endl '\n'
 
+// 【速查】主席树（可持久化数组 / 可持久化线段树）
+// 用途: 每次操作基于某个历史版本：单点改、单点查（P3919）；Pseg 里附区间第 k 小写法
+// 用法: root[0] = build(1, 1, n);  root[i] = update(root[ver], 1, n, pos, v);  query(root[ver], 1, n, pos)
+//       只查询的操作也要 root[i] = root[ver]
+// 复杂度: 每次 O(log n) 时间 + O(log n) 新节点；节点池 N*25，大约 n + q·log n 个
 //https://www.luogu.com.cn/problem/P3919
 //主席树单点修改单点查询
 
@@ -717,6 +758,11 @@ void solve(){
 }
 
 
+// 【速查】主席树（结构体封装版，含区间第 k 小）
+// 用法: PSeg pst;（放全局，别放栈上）  pst.root[0] = pst.build(0, 1, n, vec) 或 buildEmpty(0, 1, m)
+//       pst.root[i] = pst.update(pst.root[i-1], 1, n, pos, v);  pst.query(pst.root[ver], 1, n, pos)
+//       区间第 k 小: 打开注释里的 insert / queryKth，值先离散化，queryKth(root[l-1], root[r], 1, m, k)
+// 复杂度: 每次 O(log n)
 namespace Pseg{
     const int N = 1e6 + 5;      // 版本数上限
     const int M = N * 25;       // 节点数上限，按需调整
@@ -861,6 +907,10 @@ namespace Pseg{
 > 静态区间最大值。
 
 ```cpp
+// 【速查】ST 表（静态区间最值，不支持修改）
+// 用法: ST st(a);  st.query(l, r)        // a 为 1-based（a[0] 占位），查 [l, r]
+// 改成 min / gcd / & / |: 改构造函数和 query 里的 max（必须是可重复贡献的运算）
+// 复杂度: 预处理 O(n log n)，查询 O(1)
 //ST表，静态区间最值查询，O(nlogn)预处理，O(1)查询
 struct ST{
     int n;
@@ -909,6 +959,9 @@ using ll = long long;
 // 变体二：矩形加 + 单点求和（二维差分，套变体一）
 // 变体三：矩形加 + 矩形求和（四个树状数组维护差分及其系数）
 
+// 【速查】二维树状数组 · 单点加 + 矩形求和
+// 用法: BIT2D b(n, m);  b.add(x, y, v);  b.ask(x, y) -> (1,1)~(x,y) 前缀和;  b.ask(x1, y1, x2, y2) -> 矩形和
+// 复杂度: O(log n · log m)，空间 O(nm)；1-based
 // 变体一：单点加 + 矩形求和
 struct BIT2D {
     int n, m;
@@ -943,6 +996,9 @@ struct BIT2D {
     }
 };
 
+// 【速查】二维树状数组 · 矩形加 + 单点查
+// 用法: BIT2D_RangeAddPointQuery b(n, m);  b.add(x1, y1, x2, y2, v);  b.ask(x, y) -> 该点当前值
+// 复杂度: O(log n · log m)
 // 变体二：矩形加 + 单点求和
 // 原理：维护二维差分，矩形加等价于差分数组上的 4 个单点加，
 // 单点查询等价于差分数组的前缀和，内部直接套变体一
@@ -968,6 +1024,9 @@ struct BIT2D_RangeAddPointQuery {
     }
 };
 
+// 【速查】二维树状数组 · 矩形加 + 矩形求和
+// 用法: BIT2D_RangeAddRangeSum b(n, m);  b.add(x1, y1, x2, y2, v);  b.ask(x1, y1, x2, y2) -> 矩形和
+// 复杂度: O(log n · log m)，常数是普通版的 4 倍，空间 4·nm
 // 变体三：矩形加 + 矩形求和
 // 原理：对差分数组 d 维护前缀和时会出现 i、j 的系数，展开后需要 4 个树状数组：
 // 分别维护 d[i][j]、d[i][j] * i、d[i][j] * j、d[i][j] * i * j
@@ -1042,6 +1101,9 @@ struct BIT2D_RangeAddRangeSum {
 > 路径压缩+按大小；注意 find 为递归实现，1e6 级长链首查可能爆栈。
 
 ```cpp
+// 【速查】并查集（连通性 + 连通块计数）
+// 用法: SDU d(n);  d.merge(x, y);  d.check(x, y) -> 是否连通;  d.cnt -> 当前连通块个数;  d.find(x) -> 根
+// 复杂度: 近似 O(1)（路径压缩）；1-based。注意 find 是递归，1e6 深链可能爆栈
 //并查集
 struct SDU{
     int n, cnt;//cnt为连通块数量
@@ -1077,6 +1139,11 @@ struct SDU{
 > merge(x,y,d) 约定 dis[y]-dis[x]==d，返回 false 表示约束矛盾。
 
 ```cpp
+// 【速查】带权并查集（维护"差值"关系：val[y] - val[x] = d）
+// 用法: DSU d(n);  d.merge(x, y, d0) -> 加约束 val[y]-val[x]=d0，与已有约束矛盾返回 false
+//       查差值: 先 d.find(x), d.find(y)，同根时 val[y]-val[x] = d.dis[y] - d.dis[x]
+// 含义: find 后 dis[x] = val[x] - val[根]
+// 复杂度: 近似 O(1)；1-based
 //带权并查集，维护每个连通块根节点到每个节点中某个权值关系
 struct DSU{
     int n;
@@ -1131,6 +1198,11 @@ struct DSU{
 ```cpp
 #define ll long long
 #define endl '\n'
+// 【速查】树状数组套权值线段树（带修区间第 k 小，P2617）
+// 用途: 单点修改 + 区间第 k 小 / 区间 ≤x 个数 / 排名 / 前驱后继
+// 用法: 离线读入全部操作 → 初值和所有修改值一起离散化 → bit.add(i, id, +1) 建初始
+//       修改: bit.add(pos, 旧id, -1); bit.add(pos, 新id, +1)；  查询: vals[bit.kth(l, r, k) - 1]
+// 复杂度: 修改/查询 O(log² n)；内存很大（见下方 M 说明），MLE 就换 staticPST_BIT
 namespace PST_BIT{
     /* ============================================================================
     * 树状数组套动态开点权值线段树（BIT × Dynamic PST）
@@ -1363,6 +1435,9 @@ namespace PST_BIT{
     }
 }
 
+// 【速查】静态主席树 + 树状数组增量（带修区间第 k 小，省内存版）
+// 用途、用法与上面 PST_BIT 相同；初值建静态主席树，只有修改走 BIT，内存约省一半
+// 复杂度: 修改/查询 O(log² n)
 namespace staticPST_BIT{
     /* ============================================================================
     * 静态主席树 + 树状数组套动态开点权值线段树
@@ -1692,6 +1767,10 @@ struct Op{
 };
 vector<Op> ops;
 
+// 【速查】线段树套权值线段树（带修区间第 k 小）
+// 用途: 同"树状数组套"，外层换成位置线段树；能做 BIT 做不了的（外层需要区间信息时）
+// 用法: 离线 + 离散化后，seg.modify(1, 1, n, pos, id, ±1) 删旧加新；查询 vals[seg.kth(l, r, k) - 1]
+// 复杂度: O(log² n)；内存比 BIT 版还大，n=q=1e5 满负载约 1.2GB，按真实规模缩小 N/M
 /* =============================== 核心结构 ============================== */
 struct SegPST{
 
@@ -1893,6 +1972,10 @@ const int maxn = 5e4;
 int B;
 int cur = 0;
 
+// 【速查】普通莫队（离线区间查询，无修改）
+// 用途: 区间信息能 O(1) 加/删一个元素时，离线回答 m 个区间询问。本例: 区间内任取两数相同的概率（P1494）
+// 用法: 改 add(pos) / del(pos) 维护 cur；询问按 (l/B, 奇偶 r) 排序后移动指针
+// 复杂度: O(n√m)，B = n/√(2m/3)
 struct Q{
     int l, r, id;
 
@@ -1971,6 +2054,10 @@ void solve(){
 #define double long double
 
 int n, m, B;
+// 【速查】带修莫队（离线，支持单点修改）
+// 用途: 普通莫队 + 时间维；本例: 区间不同数个数 + 单点改值（P1903）
+// 用法: 询问记 (l, r, 之前的修改数 t)，修改记 (pos, x)；改 add/del 即可套其他题
+// 复杂度: O(n^{5/3})，B = n^{2/3}；下标 0-based
 struct Q{
     int l, r, t, id;
 
@@ -2064,6 +2151,10 @@ void solve(){
 #define double long double
 
 int n, q, B;
+// 【速查】回滚莫队（只加不删）
+// 用途: 信息只能方便地"加入"、难"删除"时（如区间最值类）。本例: 区间内相同数的最远距离（P5906）
+// 用法: 左端点同块的询问一起处理，右指针只右移，左边每次从块边界重新加入再回滚；同块内的小询问暴力
+// 复杂度: O(n√q)；下标 0-based，值先离散化
 struct Q{
     int l, r, id;
 
@@ -2171,4 +2262,541 @@ void solve(){
     for(int i : ans) cout << i << '\n';
 
 }
+```
+
+### FHQ Treap 平衡树（权值版 + 序列版）
+
+> 【10.22 新增】插入/删除/排名/第 k 小/前驱后继；序列版支持任意位置插删、区间翻转。
+
+```cpp
+// 【速查】FHQ Treap（无旋 Treap）· 权值平衡树
+// 用途: 动态可重集合：插入、删除、查排名、查第 k 小、前驱、后继（P3369 / P6136）
+// 用法: Treap t(最大插入次数);  t.insert(x);  t.erase(x)（只删一个）;
+//       t.rank(x) -> 比 x 小的个数 + 1;  t.kth(k) -> 第 k 小（1-based，k 越界返回 LLONG_MIN）;
+//       t.prev(x) -> 严格小于 x 的最大值（没有返回 LLONG_MIN）;  t.next(x) -> 严格大于 x 的最小值（没有返回 LLONG_MAX）
+// 复杂度: 每次期望 O(log n)；节点数 = 插入次数
+struct Treap {
+    struct Node { int l, r, sz; unsigned pri; long long key; };
+    vector<Node> t;
+    int root = 0;
+    mt19937 rng{20251022};
+
+    Treap(int maxn = 0) { t.reserve(maxn + 1); t.push_back({0, 0, 0, 0, 0}); }
+
+    int newNode(long long k) { t.push_back({0, 0, 1, (unsigned)rng(), k}); return (int)t.size() - 1; }
+    void pull(int u) { t[u].sz = t[t[u].l].sz + t[t[u].r].sz + 1; }
+
+    // 按值分裂: a 中 key <= k，b 中 key > k
+    void split(int u, long long k, int &a, int &b) {
+        if (!u) { a = b = 0; return; }
+        if (t[u].key <= k) { a = u; split(t[u].r, k, t[u].r, b); }
+        else { b = u; split(t[u].l, k, a, t[u].l); }
+        pull(u);
+    }
+    // 合并: 要求 a 的所有 key <= b 的所有 key
+    int merge(int a, int b) {
+        if (!a || !b) return a | b;
+        if (t[a].pri > t[b].pri) { t[a].r = merge(t[a].r, b); pull(a); return a; }
+        t[b].l = merge(a, t[b].l); pull(b); return b;
+    }
+
+    void insert(long long x) {
+        int a, b; split(root, x, a, b);
+        int c = newNode(x);
+        root = merge(merge(a, c), b);
+    }
+    void erase(long long x) {
+        int a, b, c;
+        split(root, x, a, c);
+        split(a, x - 1, a, b);              // b 里全是等于 x 的点
+        if (b) b = merge(t[b].l, t[b].r);   // 删掉一个
+        root = merge(merge(a, b), c);
+    }
+    int rank(long long x) {
+        int a, b; split(root, x - 1, a, b);
+        int res = t[a].sz + 1;
+        root = merge(a, b);
+        return res;
+    }
+    long long kth(int k) {
+        int u = root;
+        if (k < 1 || k > t[root].sz) return LLONG_MIN;
+        while (u) {
+            int ls = t[t[u].l].sz;
+            if (k <= ls) u = t[u].l;
+            else if (k == ls + 1) return t[u].key;
+            else k -= ls + 1, u = t[u].r;
+        }
+        return LLONG_MIN;
+    }
+    long long prev(long long x) {
+        long long ans = LLONG_MIN;
+        for (int u = root; u; ) {
+            if (t[u].key < x) ans = t[u].key, u = t[u].r;
+            else u = t[u].l;
+        }
+        return ans;
+    }
+    long long next(long long x) {
+        long long ans = LLONG_MAX;
+        for (int u = root; u; ) {
+            if (t[u].key > x) ans = t[u].key, u = t[u].l;
+            else u = t[u].r;
+        }
+        return ans;
+    }
+    int size() { return t[root].sz; }
+};
+
+// 【速查】FHQ Treap · 序列版（按位置分裂，区间翻转，文艺平衡树 P3391）
+// 用途: 维护一个序列：任意位置插入 / 删除、区间翻转，最后按顺序输出
+// 用法: SeqTreap s(最大元素数);  s.push_back(v);  s.insert(pos, v)（插到第 pos 个之后，pos=0 插最前）;
+//       s.erase(pos)（删第 pos 个，1-based）;  s.reverse(l, r);  s.toVector() -> 当前序列
+// 扩展: 区间加 / 区间和 等，在 Node 里加字段，push 里下传，pull 里汇总
+// 复杂度: 每次期望 O(log n)
+struct SeqTreap {
+    struct Node { int l, r, sz; unsigned pri; long long val; bool rev; };
+    vector<Node> t;
+    int root = 0;
+    mt19937 rng{1022};
+
+    SeqTreap(int maxn = 0) { t.reserve(maxn + 1); t.push_back({0, 0, 0, 0, 0, false}); }
+
+    int newNode(long long v) { t.push_back({0, 0, 1, (unsigned)rng(), v, false}); return (int)t.size() - 1; }
+    void pull(int u) { t[u].sz = t[t[u].l].sz + t[t[u].r].sz + 1; }
+    void push(int u) {
+        if (!t[u].rev) return;
+        swap(t[u].l, t[u].r);
+        if (t[u].l) t[t[u].l].rev ^= 1;
+        if (t[u].r) t[t[u].r].rev ^= 1;
+        t[u].rev = false;
+    }
+    // 按大小分裂: a 为前 k 个，b 为其余
+    void split(int u, int k, int &a, int &b) {
+        if (!u) { a = b = 0; return; }
+        push(u);
+        if (t[t[u].l].sz < k) { a = u; split(t[u].r, k - t[t[u].l].sz - 1, t[u].r, b); }
+        else { b = u; split(t[u].l, k, a, t[u].l); }
+        pull(u);
+    }
+    int merge(int a, int b) {
+        if (!a || !b) return a | b;
+        if (t[a].pri > t[b].pri) { push(a); t[a].r = merge(t[a].r, b); pull(a); return a; }
+        push(b); t[b].l = merge(a, t[b].l); pull(b); return b;
+    }
+
+    void push_back(long long v) { int c = newNode(v); root = merge(root, c); }
+    void insert(int pos, long long v) {
+        int a, b; split(root, pos, a, b);
+        int c = newNode(v);
+        root = merge(merge(a, c), b);
+    }
+    void erase(int pos) {
+        int a, b, c;
+        split(root, pos - 1, a, b);
+        split(b, 1, b, c);
+        root = merge(a, c);
+    }
+    void reverse(int l, int r) {
+        int a, b, c;
+        split(root, l - 1, a, b);
+        split(b, r - l + 1, b, c);
+        if (b) t[b].rev ^= 1;
+        root = merge(merge(a, b), c);
+    }
+    vector<long long> toVector() {
+        vector<long long> res;
+        vector<int> st;
+        int u = root;
+        while (u || !st.empty()) {          // 迭代中序遍历，避免深递归
+            while (u) { push(u); st.push_back(u); u = t[u].l; }
+            u = st.back(); st.pop_back();
+            res.push_back(t[u].val);
+            u = t[u].r;
+        }
+        return res;
+    }
+    int size() { return t[root].sz; }
+};
+```
+
+### LCT 动态树
+
+> 【10.22 新增】动态 link/cut、路径点权异或和、单点修改、判连通。
+
+```cpp
+// 【速查】Link-Cut Tree（动态树，P3690）
+// 用途: 森林上动态加边 / 删边 + 路径查询 / 单点修改 / 判连通（本模板维护路径点权异或和）
+// 用法: LCT t(n);  t.v[i] = 初始点权（再对每个点 t.pushup(i)，或直接用 modify）;
+//       t.link(x, y) -> 不连通才连，成功返回 true;  t.cut(x, y) -> 有边 (x,y) 才断，成功返回 true;
+//       t.query(x, y) -> x 到 y 路径点权异或和（要求连通）;  t.modify(x, val);  t.connected(x, y)
+// 改成路径和 / 最大值: 改 pushup 里的运算（以及 s[] 的含义）
+// 复杂度: 每次均摊 O(log n)；点 1-based
+struct LCT {
+    vector<array<int, 2>> c;
+    vector<int> f, v, s;
+    vector<char> r;
+    vector<int> stk;
+
+    LCT(int n) : c(n + 1, {0, 0}), f(n + 1), v(n + 1), s(n + 1), r(n + 1) {}
+
+    bool nroot(int x) { return c[f[x]][0] == x || c[f[x]][1] == x; }   // x 不是所在 splay 的根
+    void pushup(int x) { s[x] = s[c[x][0]] ^ s[c[x][1]] ^ v[x]; }
+    void rev(int x) { swap(c[x][0], c[x][1]); r[x] ^= 1; }
+    void pushdown(int x) {
+        if (r[x]) {
+            if (c[x][0]) rev(c[x][0]);
+            if (c[x][1]) rev(c[x][1]);
+            r[x] = 0;
+        }
+    }
+    void rotate(int x) {
+        int y = f[x], z = f[y], k = (c[y][1] == x), w = c[x][!k];
+        if (nroot(y)) c[z][c[z][1] == y] = x;
+        c[x][!k] = y; c[y][k] = w;
+        if (w) f[w] = y;
+        f[y] = x; f[x] = z;
+        pushup(y);
+    }
+    void splay(int x) {
+        int y = x;
+        stk.clear(); stk.push_back(y);
+        while (nroot(y)) stk.push_back(y = f[y]);
+        while (!stk.empty()) { pushdown(stk.back()); stk.pop_back(); }
+        while (nroot(x)) {
+            y = f[x]; int z = f[y];
+            if (nroot(y)) rotate(((c[y][0] == x) ^ (c[z][0] == y)) ? x : y);
+            rotate(x);
+        }
+        pushup(x);
+    }
+    void access(int x) {                       // 打通根到 x 的实链
+        for (int y = 0; x; x = f[y = x]) { splay(x); c[x][1] = y; pushup(x); }
+    }
+    void makeroot(int x) { access(x); splay(x); rev(x); }
+    int findroot(int x) {
+        access(x); splay(x);
+        pushdown(x);
+        while (c[x][0]) { x = c[x][0]; pushdown(x); }
+        splay(x);
+        return x;
+    }
+    void split(int x, int y) { makeroot(x); access(y); splay(y); }   // 之后 y 的子树就是 x-y 路径
+    bool connected(int x, int y) { return findroot(x) == findroot(y); }
+    bool link(int x, int y) {
+        makeroot(x);
+        if (findroot(y) == x) return false;
+        f[x] = y;
+        return true;
+    }
+    bool cut(int x, int y) {
+        makeroot(x);
+        if (findroot(y) != x || f[y] != x || c[y][0]) return false;
+        f[y] = c[x][1] = 0;
+        pushup(x);
+        return true;
+    }
+    int query(int x, int y) { split(x, y); return s[y]; }
+    void modify(int x, int val) { splay(x); v[x] = val; pushup(x); }
+};
+```
+
+### 线段树合并与分裂
+
+> 【10.22 新增】动态开点权值线段树的 merge / split / kth，树上子树信息合并。
+
+```cpp
+// 【速查】线段树合并 / 分裂（动态开点权值线段树，P5494）
+// 用途: 很多棵权值线段树之间整体合并、按值域切出一段、查第 k 小 / 区间计数
+//       典型: 树上每个点一棵树，DFS 时把儿子的树合并上来（子树信息统计）
+// 用法: SegMerge sm(值域上界 n, 节点池大小);  int rt = 0;
+//       sm.add(rt, 1, n, pos, v)            // 值 pos 的个数 += v（rt 为 0 时自动建树）
+//       rt = sm.merge(rt, rt2, 1, n)       // 把 rt2 并进 rt（rt2 之后不能再用）
+//       int nr = 0; sm.split(rt, nr, 1, n, l, r)   // 把 rt 中值域 [l, r] 的部分切到新树 nr
+//       sm.query(rt, 1, n, l, r) -> 值域 [l, r] 的个数;  sm.kth(rt, 1, n, k) -> 第 k 小的值（不足 k 个返回 -1）
+// 复杂度: add / query / kth / split 都是 O(log n)，merge 总复杂度均摊 O(总节点数)
+// 节点池: 约 (插入次数 + 分裂次数) × log n
+struct SegMerge {
+    int n, tot = 0;
+    vector<int> L, R;
+    vector<long long> cnt;
+
+    SegMerge(int n, int maxNodes) : n(n), L(maxNodes, 0), R(maxNodes, 0), cnt(maxNodes, 0) {}
+
+    int newNode() { ++tot; assert(tot < (int)L.size()); L[tot] = R[tot] = 0; cnt[tot] = 0; return tot; }
+    void pull(int u) { cnt[u] = cnt[L[u]] + cnt[R[u]]; }
+
+    void add(int &u, int l, int r, int pos, long long v) {
+        if (!u) u = newNode();
+        if (l == r) { cnt[u] += v; return; }
+        int mid = (l + r) / 2;
+        if (pos <= mid) add(L[u], l, mid, pos, v);
+        else add(R[u], mid + 1, r, pos, v);
+        pull(u);
+    }
+    long long query(int u, int l, int r, int ql, int qr) {
+        if (!u || qr < l || r < ql) return 0;
+        if (ql <= l && r <= qr) return cnt[u];
+        int mid = (l + r) / 2;
+        return query(L[u], l, mid, ql, qr) + query(R[u], mid + 1, r, ql, qr);
+    }
+    int merge(int a, int b, int l, int r) {
+        if (!a || !b) return a | b;
+        if (l == r) { cnt[a] += cnt[b]; return a; }
+        int mid = (l + r) / 2;
+        L[a] = merge(L[a], L[b], l, mid);
+        R[a] = merge(R[a], R[b], mid + 1, r);
+        pull(a);
+        return a;
+    }
+    void split(int &u, int &v, int l, int r, int ql, int qr) {
+        if (!u || qr < l || r < ql) return;
+        if (ql <= l && r <= qr) { v = u; u = 0; return; }   // 整块直接摘走
+        if (!v) v = newNode();
+        int mid = (l + r) / 2;
+        split(L[u], L[v], l, mid, ql, qr);
+        split(R[u], R[v], mid + 1, r, ql, qr);
+        pull(u); pull(v);
+    }
+    int kth(int u, int l, int r, long long k) {
+        if (!u || k < 1 || cnt[u] < k) return -1;
+        while (l < r) {
+            int mid = (l + r) / 2;
+            if (cnt[L[u]] >= k) u = L[u], r = mid;
+            else k -= cnt[L[u]], u = R[u], l = mid + 1;
+        }
+        return l;
+    }
+};
+```
+
+### 左偏树（可并堆）
+
+> 【10.22 新增】多个小根堆 O(log n) 合并、删堆顶。
+
+```cpp
+// 【速查】左偏树（可并堆，P3377）
+// 用途: 很多个小根堆，支持 O(log n) 合并两个堆、删除堆顶
+// 用法: LeftistHeap h(n);  h.val[i] = 第 i 个数（开始时每个数自成一个堆）;
+//       h.join(x, y)  -> 合并 x、y 所在的堆（任一已被删除或已同堆则忽略）
+//       h.pop(x)      -> 删除 x 所在堆的最小值并返回；x 已被删除返回 -1（值相同时编号小的先出）
+//       h.top(x)      -> 只看不删
+// 改大根堆: 把 less 里的比较反过来
+// 复杂度: 合并 / 删除 O(log n)；1-based
+struct LeftistHeap {
+    vector<int> l, r, d, fa;
+    vector<long long> val;
+    vector<char> del;
+
+    LeftistHeap(int n) : l(n + 1), r(n + 1), d(n + 1, 0), fa(n + 1), val(n + 1), del(n + 1, 0) {
+        d[0] = -1;
+        for (int i = 0; i <= n; i++) fa[i] = i;
+    }
+    bool less(int x, int y) { return val[x] < val[y] || (val[x] == val[y] && x < y); }
+    int merge(int x, int y) {
+        if (!x || !y) return x | y;
+        if (less(y, x)) swap(x, y);
+        r[x] = merge(r[x], y);
+        if (d[l[x]] < d[r[x]]) swap(l[x], r[x]);
+        d[x] = d[r[x]] + 1;
+        return x;
+    }
+    int find(int x) {                         // x 所在堆的堆顶（路径压缩）
+        while (fa[x] != x) x = fa[x] = fa[fa[x]];
+        return x;
+    }
+    void join(int x, int y) {
+        if (del[x] || del[y]) return;
+        x = find(x), y = find(y);
+        if (x == y) return;
+        fa[x] = fa[y] = merge(x, y);
+    }
+    long long top(int x) { return del[x] ? -1 : val[find(x)]; }
+    long long pop(int x) {
+        if (del[x]) return -1;
+        x = find(x);
+        del[x] = 1;
+        fa[x] = fa[l[x]] = fa[r[x]] = merge(l[x], r[x]);   // 被删点指向新堆顶，旧路径仍能找到
+        fa[0] = 0;                                          // 孩子为空时上一行会写到 fa[0]，复原
+        return val[x];
+    }
+};
+```
+
+### 可持久化 Trie（区间最大异或）
+
+> 【10.22 新增】第 l..r 个插入的数中与 x 异或的最大值。
+
+```cpp
+// 【速查】可持久化 01-Trie（区间最大异或，P4735）
+// 用途: 依次插入若干数，询问"第 l..r 个插入的数里，与 x 异或的最大值"
+// 用法: PersistentTrie T(最大插入次数);  T.insert(y);   // 第 i 次插入后版本号为 i（版本 0 为空）
+//       T.query(l, r, x) -> max_{l <= i <= r} (x ^ 第 i 个数)，要求 1 <= l <= r <= 已插入个数
+// 套路(P4735): 令 s[i] 为前缀异或，先插入 s[0]=0；问 max(s[p-1] ^ s[n] ^ x)，p∈[l,r] 就是查
+//       插入序号 [l, r]（s[l-1]..s[r-1] 对应序号 l..r）
+// 复杂度: 插入 / 查询 O(BITS)；节点数 = 插入次数 × (BITS + 1)
+struct PersistentTrie {
+    static const int BITS = 30;              // 值域 < 2^30；long long 值域改成 62 并把 int 换 long long
+    vector<array<int, 2>> ch;
+    vector<int> cnt, root;
+
+    PersistentTrie(int maxInsert = 0) {
+        ch.reserve((size_t)(maxInsert + 1) * (BITS + 1) + 1);
+        cnt.reserve(ch.capacity());
+        ch.push_back({0, 0}); cnt.push_back(0);   // 0 号为空节点
+        root.push_back(0);                         // 版本 0: 空树
+    }
+    int newNode() { ch.push_back({0, 0}); cnt.push_back(0); return (int)ch.size() - 1; }
+
+    void insert(int x) {
+        int p = root.back(), q = newNode();
+        root.push_back(q);
+        for (int i = BITS - 1; i >= 0; i--) {
+            int b = x >> i & 1;
+            ch[q] = ch[p]; cnt[q] = cnt[p] + 1;
+            int nq = newNode();
+            ch[q][b] = nq;
+            p = ch[p][b]; q = nq;
+        }
+        ch[q] = ch[p]; cnt[q] = cnt[p] + 1;
+    }
+    int query(int l, int r, int x) {
+        int u = root[r], v = root[l - 1], res = 0;
+        for (int i = BITS - 1; i >= 0; i--) {
+            int b = x >> i & 1;
+            if (cnt[ch[u][!b]] - cnt[ch[v][!b]] > 0) { res |= 1 << i; u = ch[u][!b]; v = ch[v][!b]; }
+            else { u = ch[u][b]; v = ch[v][b]; }
+        }
+        return res;
+    }
+};
+```
+
+### 单调栈与单调队列
+
+> 【10.22 新增】左右第一个更大元素、滑动窗口最值。
+
+```cpp
+// 【速查】单调栈：每个位置左/右第一个比它大（或小）的位置
+// 用法: auto R = nextGreater(a);   // a 为 0-based，R[i] = 右边第一个 a[j] > a[i] 的 j，没有为 n
+//       auto L = prevGreater(a);   // L[i] = 左边第一个 a[j] > a[i] 的 j，没有为 -1
+// 改"更小": 把 while 里 a[st.back()] 与 a[i] 的比较方向反过来；
+// 严格/非严格: nextGreater 里 < 改 <= 就变成"右边第一个 >= 的"
+// 用途: 以 a[i] 为最大值的区间 (L[i], R[i])、柱状图最大矩形、贡献法计数
+// 复杂度: O(n)
+vector<int> nextGreater(const vector<long long>& a) {
+    int n = a.size();
+    vector<int> res(n, n), st;
+    for (int i = 0; i < n; i++) {
+        while (!st.empty() && a[st.back()] < a[i]) { res[st.back()] = i; st.pop_back(); }
+        st.push_back(i);
+    }
+    return res;
+}
+vector<int> prevGreater(const vector<long long>& a) {
+    int n = a.size();
+    vector<int> res(n, -1), st;
+    for (int i = 0; i < n; i++) {
+        while (!st.empty() && a[st.back()] <= a[i]) st.pop_back();
+        if (!st.empty()) res[i] = st.back();
+        st.push_back(i);
+    }
+    return res;
+}
+
+// 【速查】单调队列：滑动窗口最大值 / 最小值
+// 用法: auto mx = slidingMax(a, k);   // a 为 0-based，mx[i] = max(a[i..i+k-1])，长度 n-k+1
+//       slidingMin 同理
+// 用途: 窗口最值、单调队列优化 DP（dp[i] = max_{i-k<=j<i} dp[j] + ...，队列里存下标）
+// 复杂度: O(n)
+vector<long long> slidingMax(const vector<long long>& a, int k) {
+    vector<long long> res;
+    deque<int> q;
+    for (int i = 0; i < (int)a.size(); i++) {
+        while (!q.empty() && a[q.back()] <= a[i]) q.pop_back();
+        q.push_back(i);
+        if (q.front() <= i - k) q.pop_front();
+        if (i >= k - 1) res.push_back(a[q.front()]);
+    }
+    return res;
+}
+vector<long long> slidingMin(const vector<long long>& a, int k) {
+    vector<long long> res;
+    deque<int> q;
+    for (int i = 0; i < (int)a.size(); i++) {
+        while (!q.empty() && a[q.back()] >= a[i]) q.pop_back();
+        q.push_back(i);
+        if (q.front() <= i - k) q.pop_front();
+        if (i >= k - 1) res.push_back(a[q.front()]);
+    }
+    return res;
+}
+```
+
+### 珂朵莉树 ODT
+
+> 【10.22 新增】区间赋值 + 随机数据下的暴力区间操作。
+
+```cpp
+// 【速查】珂朵莉树 ODT（颜色段均摊，CF896C）
+// 用途: 有"区间赋值"操作且数据随机时，用 set 维护值相同的连续段，暴力处理其余操作
+// 用法: ODT t;  t.init(a, n);   // a 为 1-based，自动加哨兵 [n+1, n+1]
+//       t.assign(l, r, v)  区间赋值;   t.add(l, r, v)  区间加;
+//       t.kth(l, r, k) -> 区间第 k 小;   t.powsum(l, r, x, mod) -> Σ a_i^x mod mod
+// 注意: 先 split(r + 1) 再 split(l)，顺序反了迭代器会失效
+//       只有存在区间赋值且数据随机时复杂度才有保证，构造数据会被卡
+// 复杂度: 随机数据下均摊 O(n log log n) 段操作
+struct ODT {
+    struct Node {
+        long long l, r;
+        mutable long long v;
+        bool operator<(const Node& o) const { return l < o.l; }
+    };
+    set<Node> s;
+
+    void init(const vector<long long>& a, int n) {
+        s.clear();
+        for (int i = 1; i <= n; i++) s.insert({i, i, a[i]});
+        s.insert({n + 1, n + 1, 0});
+    }
+    // 把包含 pos 的段从 pos 处断开，返回以 pos 开头的段
+    set<Node>::iterator split(long long pos) {
+        auto it = s.lower_bound({pos, 0, 0});
+        if (it != s.end() && it->l == pos) return it;
+        --it;
+        long long l = it->l, r = it->r, v = it->v;
+        s.erase(it);
+        s.insert({l, pos - 1, v});
+        return s.insert({pos, r, v}).first;
+    }
+    void assign(long long l, long long r, long long v) {
+        auto itr = split(r + 1), itl = split(l);
+        s.erase(itl, itr);
+        s.insert({l, r, v});
+    }
+    void add(long long l, long long r, long long v) {
+        auto itr = split(r + 1), itl = split(l);
+        for (auto it = itl; it != itr; ++it) it->v += v;
+    }
+    long long kth(long long l, long long r, long long k) {
+        auto itr = split(r + 1), itl = split(l);
+        vector<pair<long long, long long>> seg;   // (值, 个数)
+        for (auto it = itl; it != itr; ++it) seg.push_back({it->v, it->r - it->l + 1});
+        sort(seg.begin(), seg.end());
+        for (auto& [v, c] : seg) { if (k <= c) return v; k -= c; }
+        return -1;
+    }
+    static long long qpow(long long a, long long b, long long m) {
+        long long res = 1 % m; a %= m; if (a < 0) a += m;
+        for (; b; b >>= 1, a = (__int128)a * a % m) if (b & 1) res = (__int128)res * a % m;
+        return res;
+    }
+    long long powsum(long long l, long long r, long long x, long long mod) {
+        auto itr = split(r + 1), itl = split(l);
+        long long res = 0;
+        for (auto it = itl; it != itr; ++it)
+            res = (res + (__int128)qpow(it->v, x, mod) * ((it->r - it->l + 1) % mod)) % mod;
+        return res;
+    }
+};
 ```

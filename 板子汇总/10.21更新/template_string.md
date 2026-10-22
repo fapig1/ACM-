@@ -16,6 +16,10 @@ using namespace std;
 > 【本次修复】移除 #define int long long（原版静态数组因此占 1.68GB）；N=1e5(28MB)，按题目总长调整。
 
 ```cpp
+// 【速查】字典树 Trie（前缀计数）
+// 用法: insert(s) 插入；query(s) -> 以 s 为前缀的已插入串个数；字符集 A-Z a-z 0-9（hashn 映射）
+// 多组数据: solve 末尾已把用过的 ch/cnt 清零
+// 复杂度: 插入/查询 O(|s|)；空间 N × 70 个 int，N 按"所有串总长"开
 /* 原版有 #define int long long, 导致 ch[3e6][70] 每格 8B 共 1.68GB —— 已移除。
  * 字符集 62 (大写/小写/数字), 每个节点 70 个儿子槽, int(4B) 下:
  *   N=1e5 → 28MB; N=5e5 → 140MB。按题目"所有串总长"上限调整 N。 */
@@ -116,6 +120,12 @@ int main(){
 > fail 树拓扑传播计数；含首次出现位置与全覆盖判定两个应用。
 
 ```cpp
+// 【速查】AC 自动机（多模式串匹配）
+// 用法: ac.init(); ac.insert(s, id[i]); ac.build();          // ac 是全局对象，id[i] 返回模式串编号
+//       ac.query(t); ac.topu();  -> ac.ans[id[i]] = 第 i 个模式串在 t 中出现次数
+//       ac.query_first(t) -> ac.first[id] 首次出现位置；ac.covered(t) -> t 能否被模式串完全覆盖
+// 复杂度: 建立 O(Σ|s| × 26)，匹配 O(|t|)；模式串总长 ≤ SIZE(2e5)，只支持小写字母
+// 多组数据: 每组开头调用 init() 即可
 //AC自动机模板
 // 结构: Trie + fail 指针; 文本在自动机上跑, 状态 u = 当前文本前缀的最长后缀
 // 关键: fail[u] 指向"u 代表串的最长真后缀所在状态", build 时补齐 son 转移, 失配自动跳 fail
@@ -140,7 +150,7 @@ struct AC {
 
         void init() {
             memset(son, 0, sizeof(son));
-            len = ans = fail = idx = 0;
+            len = ans = fail = idx = du = 0;   // 10.22 修复: 原版不清 du，多组数据复用时依赖上一组跑过 topu
         }
     };
 
@@ -322,6 +332,10 @@ int ne[N];
 //原版 getd() 无 '#' 分隔符且无边界检查(不能处理偶回文, 越界为 UB), 且从未被调用 —— 已重写
 //d[i]: 变换串 t = "#a#b#..." 中以 i 为中心的回文臂长, 恰等于原串对应回文的长度
 int d[N * 2];
+// 【速查】Manacher 最长回文子串
+// 用法: int len = manacher(s);    // 返回最长回文子串长度（奇偶都算）
+// 进阶: 调用后 d[i] 是变换串 "#a#b#" 中以 i 为中心的回文长度（= 原串回文长度）
+// 复杂度: O(n)
 int manacher(const string& str){
     string t = "#";
     for(char c : str){ t += c; t += '#'; }
@@ -337,6 +351,11 @@ int manacher(const string& str){
 }
 
 
+// 【速查】KMP（写在 main 里，1-based）
+// 用途: 模式串 p 在文本 s 中所有出现位置；ne[i] = p[1..i] 的最长相等真前后缀长度（border）
+// 用法: s1、s2 是 1-based 的文本/模式；第一个循环求 ne，第二个循环匹配，j == n 时找到一次（起点 i-n+1）
+// 常用: 最小循环节长度 = n - ne[n]
+// 复杂度: O(n + m)
 signed main(){
     ios::sync_with_stdio(false);
     cin.tie(0);
@@ -386,6 +405,10 @@ signed main(){
 ```cpp
 #define int long long
 
+// 【速查】字符串双哈希
+// 用法: StringHash h(s);  h.get(l, r) -> pair 双哈希（0-based 闭区间）；两段 pair 相等即认为子串相等
+// 用途: O(1) 比较子串；配合二分求 LCP、最长回文、循环同构等
+// 复杂度: 预处理 O(n)，查询 O(1)；串长 ≤ MAXN(1e6)
 //字符串哈希
 struct StringHash {
     static const int MAXN = 1e6 + 5;
@@ -452,6 +475,10 @@ struct StringHash {
     }
 */
 
+// 【速查】二维矩阵双哈希
+// 用法: MatrixHash h(mat);  h.get(r1, c1, r2, c2) -> 子矩阵双哈希（0-based 闭区间）
+// 用途: 二维子矩阵匹配 / 判重；mat 可以是 vector<string>
+// 复杂度: 预处理 O(RC)，查询 O(1)；R、C ≤ 1005
 struct MatrixHash {
     static const int MAXN = 1005; // 最大行数
     static const int MAXM = 1005; // 最大列数
@@ -536,6 +563,11 @@ struct MatrixHash {
 > 【本次修复】原版计数数组 cnt 在 n≥256 时前缀和越界一格；已扩容。含 height+ST表任意两后缀 LCP。
 
 ```cpp
+// 【速查】后缀数组 SA + height + 任意两后缀 LCP
+// 用法: SuffixArray SA(s);  SA.sa[i] 排名 i 的后缀起点，SA.rnk[i] 起点 i 的排名，SA.height[i] = LCP(sa[i-1], sa[i])
+//       SA.lcp(x, y) -> 后缀 s[x..] 与 s[y..] 的 LCP（O(1)，ST 表）
+// 常用: 不同子串数 = n(n+1)/2 - Σheight；两串 LCS 见下方示例
+// 复杂度: O(n log n) 构建；全部 0-based
 //后缀数组模板 (倍增 + 基数排序, O(n log n))
 //sa[i]   : 排名第 i 的后缀起点 (0-base)
 //rnk[i]  : 起点 i 的后缀排名
@@ -700,6 +732,11 @@ int main() {
 > 含 endpos 计数与出现次数查询。
 
 ```cpp
+// 【速查】后缀自动机 SAM
+// 用法: SAM sam; sam.init(|s|); sam.build(s);
+//       sam.count_distinct() -> 不同子串数；sam.count_endpos(); sam.occur(t) -> t 的出现次数
+// 用途: 子串出现次数、两串最长公共子串（下方 lcs 示例）、在线追加字符
+// 复杂度: 构建 O(n × 26)；空间 2n 个状态 × 26 个 int（n=1e6 约 220MB，注意内存）；只支持小写字母
 //后缀自动机模板 SAM (每个状态 = 一个 endpos 等价类)
 //状态数不超过 2n, next 数组用 0 表示"无转移"(与根节点 0 复用, 注意根不能是转移目标)
 //
@@ -839,6 +876,11 @@ int main() {
 > 反串 SAM 的 link 树；迭代 DFS 建倍增 LCA（防链爆栈）；up[20] 支持到约 1e6。
 
 ```cpp
+// 【速查】后缀树（反串 SAM 的 link 树）
+// 用法: SuffixTree T; T.build(s);  T.lcp(p, q) -> 后缀 s[p..] 与 s[q..] 的 LCP（O(log n)）
+//       T.count_distinct() -> 不同子串数；T.leaf[p] 是后缀 p 对应的树节点，T.g 是树的邻接表
+// 用途: 后缀之间的关系、在树上做 DP（出现次数 ≥ K 的最长子串等，见下方示例）
+// 复杂度: 构建 O(n × 26 + n log n)；内存比 SAM 多一张 20 层倍增表
 //后缀树模板: 用"反串的 SAM 的 link 树"实现
 //定理: S 的后缀树 = SAM(反转后的 S) 的 link(后缀链接)树
 //  - 每个 SAM 状态 = 后缀树一个节点, 串深度(根到该节点路径上的字符数) = len[v]
@@ -981,4 +1023,99 @@ int main() {
     return 0;
 }
 */
+```
+
+### Z 函数 / exKMP、最小表示法、回文自动机 PAM
+
+> 【10.22 新增】Z 函数与扩展 KMP、循环同构最小表示、本质不同回文子串与出现次数。
+
+```cpp
+// 【速查】Z 函数（扩展 KMP，P5410）
+// 用途: z[i] = s 与 s[i..] 的最长公共前缀；ext[i] = t 与 s[i..] 的最长公共前缀（模式串 t 在文本 s 每个位置的匹配长度）
+// 用法: auto z = zFunction(s);   // z[0] = |s|
+//       auto ext = exKMP(s, t);  // 长度 |s|
+// 常用: t 在 s 中出现 <=> ext[i] == |t|；s 的周期 p <=> z[p] == n - p
+// 复杂度: O(n + m)，全部 0-based
+vector<int> zFunction(const string& s) {
+    int n = s.size();
+    vector<int> z(n, 0);
+    if (n) z[0] = n;
+    for (int i = 1, l = 0, r = 0; i < n; i++) {        // [l, r) 为当前最右匹配段
+        if (i < r) z[i] = min(r - i, z[i - l]);
+        while (i + z[i] < n && s[z[i]] == s[i + z[i]]) z[i]++;
+        if (i + z[i] > r) l = i, r = i + z[i];
+    }
+    return z;
+}
+vector<int> exKMP(const string& s, const string& t) {
+    int n = s.size(), m = t.size();
+    vector<int> z = zFunction(t), ext(n, 0);
+    for (int i = 0, l = 0, r = 0; i < n; i++) {
+        if (i < r) ext[i] = min(r - i, z[i - l]);
+        while (ext[i] < m && i + ext[i] < n && t[ext[i]] == s[i + ext[i]]) ext[i]++;
+        if (i + ext[i] > r) l = i, r = i + ext[i];
+    }
+    return ext;
+}
+
+// 【速查】最小表示法（P1368）
+// 用途: 字符串/数组所有循环同构中字典序最小的那个（判两个环是否同构：各自最小表示相等）
+// 用法: int k = minRotation(a);   // a 为 vector<int> 或 string，最小表示是从 a[k] 开始的循环
+// 复杂度: O(n)
+template <class T>
+int minRotation(const T& a) {
+    int n = a.size(), i = 0, j = 1, k = 0;
+    while (i < n && j < n && k < n) {
+        auto x = a[(i + k) % n], y = a[(j + k) % n];
+        if (x == y) { k++; continue; }
+        if (x > y) i += k + 1; else j += k + 1;
+        if (i == j) j++;
+        k = 0;
+    }
+    return min(i, j);
+}
+
+// 【速查】回文自动机 PAM / 回文树（P5496、P3649）
+// 用途: 本质不同回文子串个数、每个回文子串出现次数、以每个位置结尾的回文串个数
+// 用法: PAM p(|s|);  对每个字符 p.add(c - 'a')，返回值 = 以当前位置结尾的回文子串个数;
+//       p.size() - 2 = 本质不同回文子串个数;  p.countOcc() 后 p.cnt[v] = 节点 v 代表的回文串出现次数，长度 p.len[v]
+// 节点: 0 是长度 -1 的奇根，1 是长度 0 的偶根，真正的回文串从 2 开始
+// 复杂度: O(n × 26)；只支持小写字母
+struct PAM {
+    vector<array<int, 26>> nxt;
+    vector<int> len, fail, cnt, num;
+    vector<int> s;
+    int last;
+
+    PAM(int n = 0) {
+        nxt.reserve(n + 2); len.reserve(n + 2); fail.reserve(n + 2); cnt.reserve(n + 2); num.reserve(n + 2);
+        newNode(-1); newNode(0);
+        fail[0] = 0; fail[1] = 0;
+        last = 1;
+    }
+    int newNode(int l) { nxt.push_back({}); len.push_back(l); fail.push_back(0); cnt.push_back(0); num.push_back(0); return (int)len.size() - 1; }
+    int getFail(int v, int i) {
+        while (i - len[v] - 1 < 0 || s[i - len[v] - 1] != s[i]) v = fail[v];
+        return v;
+    }
+    int add(int c) {
+        s.push_back(c);
+        int i = (int)s.size() - 1;
+        int cur = getFail(last, i);
+        if (!nxt[cur][c]) {
+            int now = newNode(len[cur] + 2);
+            int f = getFail(fail[cur], i);
+            fail[now] = (len[now] == 1) ? 1 : nxt[f][c];
+            num[now] = num[fail[now]] + 1;           // 以它结尾的回文后缀个数
+            nxt[cur][c] = now;
+        }
+        last = nxt[cur][c];
+        cnt[last]++;
+        return num[last];
+    }
+    int size() { return len.size(); }
+    void countOcc() {                                // 出现次数沿 fail 链累加（新节点编号大，倒序即可）
+        for (int v = size() - 1; v >= 2; v--) cnt[fail[v]] += cnt[v];
+    }
+};
 ```

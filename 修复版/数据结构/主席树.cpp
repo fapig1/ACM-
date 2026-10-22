@@ -3,6 +3,11 @@
 #define endl '\n'
 using namespace std;
 
+// 【速查】主席树（可持久化数组 / 可持久化线段树）
+// 用途: 每次操作基于某个历史版本：单点改、单点查（P3919）；Pseg 里附区间第 k 小写法
+// 用法: root[0] = build(1, 1, n);  root[i] = update(root[ver], 1, n, pos, v);  query(root[ver], 1, n, pos)
+//       只查询的操作也要 root[i] = root[ver]
+// 复杂度: 每次 O(log n) 时间 + O(log n) 新节点；节点池 N*25，大约 n + q·log n 个
 //https://www.luogu.com.cn/problem/P3919
 //主席树单点修改单点查询
 
@@ -106,6 +111,11 @@ void solve(){
 }
 
 
+// 【速查】主席树（结构体封装版，含区间第 k 小）
+// 用法: PSeg pst;（放全局，别放栈上）  pst.root[0] = pst.build(0, 1, n, vec) 或 buildEmpty(0, 1, m)
+//       pst.root[i] = pst.update(pst.root[i-1], 1, n, pos, v);  pst.query(pst.root[ver], 1, n, pos)
+//       区间第 k 小: 打开注释里的 insert / queryKth，值先离散化，queryKth(root[l-1], root[r], 1, m, k)
+// 复杂度: 每次 O(log n)
 namespace Pseg{
     const int N = 1e6 + 5;      // 版本数上限
     const int M = N * 25;       // 节点数上限，按需调整

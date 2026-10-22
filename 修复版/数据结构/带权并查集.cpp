@@ -1,6 +1,11 @@
 #include<bits/stdc++.h>
 using namespace std;
 
+// 【速查】带权并查集（维护"差值"关系：val[y] - val[x] = d）
+// 用法: DSU d(n);  d.merge(x, y, d0) -> 加约束 val[y]-val[x]=d0，与已有约束矛盾返回 false
+//       查差值: 先 d.find(x), d.find(y)，同根时 val[y]-val[x] = d.dis[y] - d.dis[x]
+// 含义: find 后 dis[x] = val[x] - val[根]
+// 复杂度: 近似 O(1)；1-based
 //带权并查集，维护每个连通块根节点到每个节点中某个权值关系
 struct DSU{
     int n;

@@ -1,6 +1,11 @@
 #include <bits/stdc++.h>
 using namespace std;
 
+// 【速查】后缀数组 SA + height + 任意两后缀 LCP
+// 用法: SuffixArray SA(s);  SA.sa[i] 排名 i 的后缀起点，SA.rnk[i] 起点 i 的排名，SA.height[i] = LCP(sa[i-1], sa[i])
+//       SA.lcp(x, y) -> 后缀 s[x..] 与 s[y..] 的 LCP（O(1)，ST 表）
+// 常用: 不同子串数 = n(n+1)/2 - Σheight；两串 LCS 见下方示例
+// 复杂度: O(n log n) 构建；全部 0-based
 //后缀数组模板 (倍增 + 基数排序, O(n log n))
 //sa[i]   : 排名第 i 的后缀起点 (0-base)
 //rnk[i]  : 起点 i 的后缀排名

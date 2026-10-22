@@ -11,6 +11,10 @@ vector<pair<int, int>>g[N];
 int dist[N];
 int back[N];
 bool st[N];
+// 【速查】Bellman-Ford（最多经过 k 条边的最短路）
+// 用法: g[x].push_back({y, w}); 设好 n、k 后 bell()
+// 返回: 1 到 n 最多 k 条边的最短距离；到不了返回 0x3f3f3f3f3f3f3f3f（可有负边）
+// 复杂度: O(k · m)；每轮必须用上一轮的 back 数组，否则会"串联"超过 k 条边
 //bellman-ford算法，有边数限制为k的单源最短路
 int bell()
 {

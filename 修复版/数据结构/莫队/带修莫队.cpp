@@ -4,6 +4,10 @@ using namespace std;
 #define double long double
 
 int n, m, B;
+// 【速查】带修莫队（离线，支持单点修改）
+// 用途: 普通莫队 + 时间维；本例: 区间不同数个数 + 单点改值（P1903）
+// 用法: 询问记 (l, r, 之前的修改数 t)，修改记 (pos, x)；改 add/del 即可套其他题
+// 复杂度: O(n^{5/3})，B = n^{2/3}；下标 0-based
 struct Q{
     int l, r, t, id;
 

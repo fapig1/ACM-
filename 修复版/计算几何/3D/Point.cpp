@@ -20,6 +20,8 @@ int sgn(double x) {
     return x < 0 ? -1 : 1;
 }
 
+// 【速查】三维点/向量 Point
+// 运算: + - 、a * b 点积、a % b 叉积（返回向量）、* k、/ k；dis / ddis 长度、Angle(a, b) 夹角
 struct Point {
     double x, y, z;
     Point(double x = 0, double y = 0, double z = 0) : x(x), y(y), z(z) {}
@@ -113,6 +115,10 @@ void fix_face(Face& f, const vector<Point>& p, int inner) {
     f.n = n;
 }
 
+// 【速查】三维凸包（随机增量法）
+// 用法: auto faces = convex_hull_3d(p);  返回凸包的三角面片；点数 < 4 或全共面返回空
+// 表面积 = Σ |(b-a) % (c-a)| / 2
+// 复杂度: O(n²) 最坏（每加一个点扫一遍所有面），n ≤ 2000 左右
 // 增量法三维凸包。
 // 输入: 点集 p（可含重复点、共线点、共面点）；返回凸包的三角形集合，法向朝外。
 // 输出: 不合并共面三角形，因此面数可能多于“最小三角剖分”；顶点坐标已去重。

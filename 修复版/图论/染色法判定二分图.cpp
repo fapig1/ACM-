@@ -7,6 +7,10 @@ const int N=1e5+10;
 int t,n,m;
 vector<int> arr[N];
 int color[N];// 1 / 2
+// 【速查】染色法判二分图
+// 用法: 建双向边；对每个未染色的点 dfs(i, 1)，有一次返回 false 就不是二分图
+// 结果: color[i] 为 1/2，即两侧的划分
+// 复杂度: O(n + m)；递归，深链注意爆栈
 //染色法判定二分图
 bool dfs(int u,int c)
 {

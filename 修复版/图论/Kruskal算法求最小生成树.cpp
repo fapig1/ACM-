@@ -6,6 +6,10 @@ using namespace std;
 const int N=2e5+10;
 int t,n,m,res,cnt;
 int fa[N];
+// 【速查】Kruskal 最小生成树
+// 用法: 读 e[1..m] = {a, b, w}，sort 后用并查集从小到大加边
+// 结果: res = MST 权值和；cnt < n-1 说明图不连通（输出 impossible）
+// 复杂度: O(m log m)，稀疏图首选
 //Kruskal算法求最小生成树
 struct edge
 {

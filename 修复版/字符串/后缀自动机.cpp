@@ -1,6 +1,11 @@
 #include <bits/stdc++.h>
 using namespace std;
 
+// 【速查】后缀自动机 SAM
+// 用法: SAM sam; sam.init(|s|); sam.build(s);
+//       sam.count_distinct() -> 不同子串数；sam.count_endpos(); sam.occur(t) -> t 的出现次数
+// 用途: 子串出现次数、两串最长公共子串（下方 lcs 示例）、在线追加字符
+// 复杂度: 构建 O(n × 26)；空间 2n 个状态 × 26 个 int（n=1e6 约 220MB，注意内存）；只支持小写字母
 //后缀自动机模板 SAM (每个状态 = 一个 endpos 等价类)
 //状态数不超过 2n, next 数组用 0 表示"无转移"(与根节点 0 复用, 注意根不能是转移目标)
 //

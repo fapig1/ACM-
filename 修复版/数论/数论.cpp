@@ -22,6 +22,9 @@ vector<int> primes;
 // 原理: 每个合数只被它的最小质因子筛掉一次，因此总复杂度是线性的。
 // 注意: 只筛到 maxn，getPrimes(x) 要求 x <= maxn；x = 0 或 1 时 min_primes 无效。
 int min_primes[maxn + 5];
+// 【速查】欧拉筛（线性筛质数 + 最小质因子）
+// 用法: init() 后 primes 是 ≤ maxn 的质数表，min_primes[x] 是 x 的最小质因子
+// 复杂度: O(maxn)；和 linear_sieve 二选一（都会往 primes 里 push）
 void init(){
     for(int i = 2; i <= maxn; i++){
         if(!min_primes[i]){
@@ -34,6 +37,9 @@ void init(){
         }
     }
 }
+// 【速查】用最小质因子表 O(log x) 分解质因数
+// 用法: 先 init()；getPrimes(x) -> 不同质因子（升序）；getPrimesCnt(x) -> {质因子, 次数}
+// 要求 x ≤ maxn；更大的数用试除 O(√x) 或 Pollard-Rho（数论进阶）
 // 分解质因数（不重复）: 返回 x 的所有不同质因子，升序，O(log x)
 // 依赖 init() 先筛出 min_primes；x 必须 <= maxn。
 vector<int> getPrimes(int x){
@@ -88,6 +94,9 @@ int div_sum[maxn + 5];     // 约数和
 int minp_exp[maxn + 5];    // 最小质因子的指数
 int minp_pwsum[maxn + 5];  // 1 + p + p^2 + ... + p^(最小质因子指数)
 
+// 【速查】线性筛全家桶：μ、φ、约数个数 τ、约数和 σ
+// 用法: linear_sieve(n) 后直接用全局数组 mu[] phi_arr[] div_cnt[] div_sum[]（以及 primes）
+// 复杂度: O(n)；n ≤ maxn(1e6)，更大请调 maxn 并注意内存（6 个 long long 数组）
 void linear_sieve(int n){
     mu[1] = 1; phi_arr[1] = 1; div_cnt[1] = 1; div_sum[1] = 1;
     for(int i = 2; i <= n; i++){
@@ -141,10 +150,16 @@ void linear_sieve(int n){
 // }
 
 
+// 【速查】快速幂 x^a mod m
+// 用法: ksm(x, a, m)；m ≤ 3e9（再大用数论进阶里带 mul 的 ksm），x 可为任意整数
+// 复杂度: O(log a)
 // 快速幂: 计算 x^a mod m，O(log a)
-// 要求 a >= 0、m > 0；a = 0 时返回 1 % m。底数 x 不取模，调用前保证 x 不溢出。
+// 要求 a >= 0、m > 0；a = 0 时返回 1 % m。底数会先规整到 [0, m)（负数也可以）。
+// 10.22 修复: 原版 ans 初值为 1（m = 1 时应为 0）且底数不取模（负底数得负结果、大底数溢出）。
 int ksm(int x, int a, int m){
-    int ans = 1;
+    int ans = 1 % m;
+    x %= m;
+    if(x < 0) x += m;
     while(a){
         if(a & 1) ans = ans * x % m;
         x = x * x % m;
@@ -154,6 +169,10 @@ int ksm(int x, int a, int m){
 }
 
 
+// 【速查】扩展欧几里得：求 ax + by = gcd(a, b) 的一组解
+// 用法: int g = exgcd(a, b, x, y);  逆元: gcd(a, m) = 1 时 (x % m + m) % m 就是 a 的逆元
+// 解 ax + by = c: 需 g | c，特解 x0 = x·c/g，通解 x0 + k·b/g
+// 复杂度: O(log)
 // 扩展欧几里得: 求 g = gcd(a,b) 及一组整数解 (x,y)，使 a*x + b*y = g。
 // 通解: x' = x + k*b/g, y' = y - k*a/g (k ∈ Z)。
 // 用途: 求模逆元（gcd(a,m)=1 时 x 即 a^{-1} mod m）、解二元一次不定方程。
@@ -171,47 +190,66 @@ int exgcd(int a, int b, int &x, int &y){
     return d;//最大公约数
 }
 
+// 【速查】中国剩余定理（模数两两互质）
+// 用法: CRT(k, a, r) -> x ≡ a[i] (mod r[i]) 的最小非负解；a、r 都是 0-based，长度 k
+// 要求: r 两两互质，乘积放得进 long long；不互质用 excrt
+// 复杂度: O(k log)
 // 中国剩余定理（模数两两互质）: 解 x ≡ a[i] (mod r[i]), i = 0..k-1。
 // 返回 [0, n) 内的唯一解，n = ∏ r[i]。
 // 做法: 令 m_i = n/r_i，用 exgcd 求 m_i 在模 r_i 下的逆元 b_i，
 //       则 x = Σ a_i * m_i * b_i (mod n)。
-// 前提: 所有 r[i] 两两互质且 > 1；n 必须在 long long 范围内（k 个 1e9 级模数最多约 6 个）。
+// 前提: 所有 r[i] 两两互质且 > 1；乘积 n 必须放得进 long long（约 9.2e18，即最多两个 1e9 级模数）。
 //       模数不互质请改用下面的 excrt。
+// 10.22 修复: 原版 a[i]*m*b 直接用 long long 乘，n 只要超过约 3e9 就溢出（实测 n≈2.2e11 已错）；
+//            现在中间乘法用 __int128，并先把 a[i]、b 规整到 [0, r[i])。
 int CRT(int k, vector<int> a, vector<int> r){
-    int n = 1, ans = 0;
+    int n = 1;
     for(int i = 0; i < k; i++){
         n = n * r[i];
     }
+    __int128 ans = 0;
     for(int i = 0; i < k; i++){
         int m = n / r[i], b, y;
-        exgcd(m, r[i], b, y);
-        ans = (ans + a[i] * m * b % n) % n;
+        exgcd(m % r[i], r[i], b, y);
+        b = (b % r[i] + r[i]) % r[i];
+        int ai = (a[i] % r[i] + r[i]) % r[i];
+        ans = (ans + (__int128)ai * b % n * m) % n;   // ai*b < r[i]^2，再乘 m 后 < n*r[i]，__int128 放得下
     }
-    return (ans % n + n) % n;
+    return (int)ans;
 }
 
+// 【速查】扩展中国剩余定理（模数可以不互质）
+// 用法: excrt(m, a, n) -> x ≡ a[i] (mod m[i]) 的最小非负解，无解返回 -1；注意参数顺序是 (模数, 余数, 个数)
+// 要求: 最终 lcm 放得进 long long
+// 复杂度: O(n log)
 // 扩展中国剩余定理（模数不必互质）: 解方程组 x ≡ a[i] (mod m[i])，i = 0..n-1。
 // 返回最小非负解；无解返回 -1。要求 n >= 1。
 // 做法: 维护已合并的解 ans（模 M），每次把 x ≡ a[i] (mod m[i]) 与它合并：
 //       先解 M*t ≡ a[i]-ans (mod m[i])，有解当且仅当 gcd(M,m[i]) 整除差值；
 //       合并后 M = lcm(M, m[i])。整体 O(n log)。
-// 注意: 结果范围由 lcm 决定，lcm 超出 long long 时会溢出（此时需 __int128 或取模版）。
+// 注意: 要求最终 lcm 放得进 long long；中间的 x*(c/d)、x*M 用 __int128 承接。
+// 10.22 修复: 原版 x*(c/d) 用 long long 乘，量级约 (m[i]/d)^2，m[i]/d 超过约 3e9 即溢出，
+//            即使 lcm <= 1e18 也会错（实测 m1~1e6、m2~1e12 时 10 万组错 94860 组，P4777 类题必错）。
 int excrt(vector<int> m, vector<int> a, int n){
     int M = m[0];
-    int ans = a[0];
+    int ans = (a[0] % M + M) % M;
     for(int i = 1; i < n; i++){
-        int c = (a[i] - ans % m[i] + m[i]) % m[i];
+        int c = ((a[i] - ans) % m[i] + m[i]) % m[i];
         int x, y;
         int d = exgcd(M, m[i], x, y);
         if(c % d) return -1;
-        x = x * (c / d) % (m[i] / d);
-        ans += x * M;
-        M = M / d * m[i];
-        ans = (ans % M + M) % M;
+        int md = m[i] / d;
+        x = (int)((__int128)(x % md + md) % md * (c / d) % md);   // M*x ≡ c (mod m[i]) 的最小非负解
+        int newM = M / d * m[i];
+        ans = (int)(((__int128)x * M + ans) % newM);
+        M = newM;
     }
     return ans;
 }
 
+// 【速查】单个数的欧拉函数 φ(n)（1..n 中与 n 互质的个数）
+// 用法: oula_phi(n)；要很多个 φ 就用 sieve_phi / linear_sieve
+// 复杂度: O(√n)
 // 单个数欧拉函数 φ(n)，O(√n)
 // 公式: φ(n) = n * ∏_{p|n} (1 - 1/p)，边分解边乘，避免除法丢精度。
 // 要求 n >= 1；n = 1 时返回 1。
@@ -227,6 +265,9 @@ int oula_phi(int n){
     return ans;
 }
 
+// 【速查】线性筛求 φ(1..n)
+// 用法: auto phi = sieve_phi(n);  phi[i] = φ(i)；不碰全局 primes
+// 复杂度: O(n)
 // 筛法求欧拉函数（线性筛）: 返回长度为 n+1 的 phi 数组，phi[i] = φ(i)，O(n)。
 // 与 linear_sieve 的区别: 这里只需要 φ，函数内部自带局部质数表，不污染全局 primes。
 // 转移同样按 i % p 分两类:
@@ -281,6 +322,11 @@ vector<int> sieve_phi(int n) {
 //   2) 前缀 max/min 与求和方向相同，逆变换则把循环方向反过来做减法；
 //   3) 下标从 1 开始使用，f[0] 不参与运算。
 
+// 【速查】狄利克雷前缀/后缀和（按约数/倍数做"高维前缀和"）
+// 用法: 先有 primes（init 或 linear_sieve）；f 为 1-based 数组，原地变换
+//   prefix_sum: f[n] ← Σ_{d|n} f[d]     suffix_sum: f[d] ← Σ_{d|n} f[n]
+//   prefix_max / prefix_min 同理取最值；prefix_inv / suffix_inv 是逆变换（相当于卷 μ）
+// 复杂度: O(n log log n)
 // 前缀和: 变换后 f[n] = Σ_{d|n} f[d]
 void dirichlet_prefix_sum(vector<int>& f, int n){
     for(int p : primes)
@@ -323,6 +369,9 @@ void dirichlet_suffix_inv(vector<int>& f, int n){
             f[i] -= f[i * p];
 }
 
+// 【速查】狄利克雷卷积快速幂 f^{*k}
+// 用法: dirichlet_power(f, res, n, k);  res[1..n] = f 卷 k 次的结果（mod）
+// 复杂度: O(n log n · log k)
 // 狄利克雷卷积快速幂: 计算 f 的 k 次卷积幂 f^{*k}（k >= 0）
 // 结果 res 长度 n+1，res[1] 为 ε（k=0 时就是单位元 ε）。
 // 单次卷积是 O(n log n)（枚举 i,j 满足 i*j<=n 的约数对），共 O(log k) 轮，
@@ -363,6 +412,9 @@ void dirichlet_power(const vector<int>& f, vector<int>& res, int n, int k) {
 // 阶乘表 0!..9!，只够康托展开 n <= 10 使用；n 更大时请自行预处理 fac[]
 const int fact[10] = {1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880};
 
+// 【速查】康托展开：排列 → 字典序排名（从 0 开始）
+// 用法: cantor_expand(p)；p 是 0..n-1 或 1..n 的排列，n ≤ 10（fact 只到 9!）
+// 复杂度: O(n²)
 /**
  * 康托展开: 求排列在字典序中的排名（从 0 开始），O(n^2)
  * 公式: code = Σ_{i=0}^{n-1} cnt_i * (n-1-i)!，
@@ -388,6 +440,9 @@ int cantor_expand(const std::vector<int>& permutation) {
     return code;
 }
 
+// 【速查】逆康托展开：排名 → 排列
+// 用法: cantor_expand_inv(code, n)（元素 0..n-1）或 cantor_expand_inv(code, n, {1..n})；n ≤ 10
+// 复杂度: O(n²)
 /**
  * 逆康托展开: 由 0-based 排名 code 还原长度为 n 的排列，O(n^2)（vector 删除元素）
  * @param code 排名，要求 0 <= code < n!
@@ -470,6 +525,10 @@ void fft(vector<Complex>& a, int type) {
     if (type == -1) for (auto& x : a) x.r /= n;
 }
 
+// 【速查】FFT 多项式乘法（不取模，double）
+// 用法: vector<int> C = multiply_fft(A, B);   // A、B 升幂系数，不能传临时对象
+// 返回: 长度 |A|+|B|-1 的卷积；系数乘积和超过约 1e14 会掉精度，要取模请用 NTT
+// 复杂度: O(n log n)
 // FFT 多项式乘法: 返回 A*B 的系数，长度 A.size()+B.size()-1（不取模，直接四舍五入）
 // 入参是非 const 引用（历史写法），不能直接传临时 vector；需要时先拷贝一份。
 // 系数为 double，精度限制见上方 FFT 段说明。
@@ -580,6 +639,10 @@ void ntt(vector<int>& a, int type) {
     }
 }
 
+// 【速查】NTT 多项式乘法（模 998244353）
+// 用法: vector<int> C = multiply_ntt(A, B);  C[k] = Σ_{i+j=k} A[i]B[j] mod 998244353
+// 限制: 结果长度 ≤ 2^23；换模数要同时换原根 G/GI（注释里有常用组合）
+// 复杂度: O(n log n)
 // NTT 加速的多项式乘法，返回系数均在 [0, NTT_MOD) 内的结果
 // 返回 C，长度 n + m - 1，满足 C[k] = Σ_{i+j=k} A[i] * B[j] (mod NTT_MOD)
 // 限制: n + m - 1 ≤ 2^23；超出需换大模数（如 469762049, 1004535809）或拆系数 MTT
@@ -605,6 +668,9 @@ vector<int> multiply_ntt(const vector<int>& A, const vector<int>& B) {
 //   vector<int> C = multiply_ntt(A, B); // C = {1, 3, 3, 1}
 
 
+// 【速查】多项式求逆（模 998244353）
+// 用法: B = poly_inv(A, n) -> 满足 A·B ≡ 1 (mod x^n) 的前 n 项；要求 A[0] ≠ 0
+// 复杂度: O(n log n)
 // ============================== 多项式求逆（NTT 加速） ==============================
 // 求 B(x) 使得 A(x)·B(x) ≡ 1 (mod x^n)，所有系数均取模 NTT_MOD（998244353）
 // 依赖: ksm + ntt + ntt_rev_init + multiply_ntt
@@ -688,6 +754,9 @@ void fwt_xor(vector<int>& a, bool inv){
     }
 }
 
+// 【速查】FWT 位运算卷积：c[k] = Σ_{i op j = k} a[i]·b[j]，op 为 or / and / xor（mod）
+// 用法: auto c = fwt_conv(a, b, fwt_or);  // 或 fwt_and / fwt_xor；返回长度为补齐后的 2 的幂
+// 复杂度: O(n log n)，n 为 2 的幂
 // FWT 卷积封装，传入 fwt_or / fwt_and / fwt_xor
 vector<int> fwt_conv(vector<int> a, vector<int> b, void (*f)(vector<int>&, bool)){
     int n = 1, mx = max(a.size(), b.size());
@@ -699,6 +768,10 @@ vector<int> fwt_conv(vector<int> a, vector<int> b, void (*f)(vector<int>&, bool)
     return a;
 }
 
+// 【速查】整除分块：Σ_{i=1}^{n} ⌊n/i⌋
+// 套路: for (l = 1; l <= n; l = r + 1) { r = n / (n / l); 区间 [l, r] 内 ⌊n/i⌋ 都等于 n/l }
+//       两个数时 r = min(n/(n/l), m/(m/l))；配莫比乌斯反演 / 杜教筛
+// 复杂度: O(√n)
 // 整除分块: 求 Σ_{i=1}^{n} floor(n/i)，O(√n)
 // 关键: floor(n/i) 只有 O(√n) 种取值；固定左端 l 后，右端 r = n/(n/l)，
 //       区间 [l,r] 内 floor(n/i) 恒为 n/l，可整段累加。
@@ -716,6 +789,9 @@ int div_block_sum(int n){
 // 典型用途: 莫比乌斯反演 / 杜教筛里把 Σ_{d} f(d)⌊n/d⌋ 压成 O(√n) 段。
 
 
+// 【速查】杜教筛：Σμ(i)、Σφ(i)，i ≤ n，n 到 1e10
+// 用法: Dujiao dj; dj.init(n); auto [smu, sphi] = dj.calc(n);   // 结果对 mod 取模
+// 复杂度: O(n^{2/3})；n = 1e10 约 0.15s
 // ============================== 杜教筛 ==============================
 // 用途: 线性筛 O(n) 只能处理 n ≤ 1e7~1e8; 杜教筛在 O(n^{2/3}) 内求积性函数前缀和
 //       S(n) = Σ_{i=1}^n f(i), n 可到 1e9 ~ 1e10 (更大需调阈值并注意内存)。
@@ -812,6 +888,10 @@ struct Dujiao {
 //   * 需要取模或 n 很大时用 floor_sum_mod / euclid3_mod。
 // =====================================================================================
 
+// 【速查】类欧几里得：Σ_{i=0}^{n-1} ⌊(a·i + b) / m⌋
+// 用法: floor_sum(n, m, a, b)，要求 a, b ≥ 0、m > 0；答案要放得进 long long，否则用 floor_sum_mod
+// 用途: 直线下整点计数、Σ⌊(ai+b)/m⌋ 类求和
+// 复杂度: O(log max(a, m))
 // 基础版: f(n,m,a,b)=Σ_{i=0}^{n-1} floor((a*i+b)/m)，O(log max(a,m))
 // 要求 n>=0, m>0, a>=0, b>=0。
 // 做法:
@@ -840,6 +920,8 @@ long long floor_sum(long long n, long long m, long long a, long long b) {
     return (long long)ans;
 }
 
+// 【速查】类欧几里得取模版：同 floor_sum，结果 mod，n 可到 1e18
+// 复杂度: O(log max(a, m))
 // 取模版: Σ_{i=0}^{n-1} floor((a*i+b)/m) mod mod，O(log max(a,m))
 // 适用于 n 很大（1e18）而只需要模值的场景；要求 mod>0，a,b>=0。
 // 注意: 每步都对 mod 取模，中间乘法用 __int128，避免 long long 溢出。
@@ -864,6 +946,9 @@ long long floor_sum_mod(long long n, long long m, long long a, long long b, long
     return (long long)ans;
 }
 
+// 【速查】类欧变式: ceil_sum 上取整求和；floor_sum_signed 允许 a、b 为负；
+//       floor_sum_range(l, r, m, a, b) 求 Σ_{i=l}^{r-1}（注意是左闭右开）
+// 复杂度: 都是 O(log)
 // 上取整版: Σ_{i=0}^{n-1} ceil((a*i+b)/m)，要求 a,b>=0，m>0
 // 恒等式: ceil(x/m)=floor((x+m-1)/m)（x 为整数，m>0）。
 // 注意: 这里直接算 b+m-1，要求 b <= LLONG_MAX-(m-1)；否则先拆分 b 再分段。
@@ -908,6 +993,10 @@ struct Euclid3 {
     __int128 f, g, h;
 };
 
+// 【速查】类欧三合一（精确）：同时求 f = Σ⌊(ai+b)/m⌋、g = Σ i·⌊..⌋、h = Σ ⌊..⌋²，i = 0..n-1
+// 用法: auto [f, g, h] = euclid3(n, m, a, b);   // 返回 __int128，a, b ≥ 0
+// 注意: h 增长很快，n 大时用 euclid3_mod
+// 复杂度: O(log max(a, m))
 Euclid3 euclid3(long long n, long long m, long long a, long long b) {
     if (n <= 0) return {0, 0, 0};
     if (a >= m || b >= m) {
@@ -980,12 +1069,19 @@ Euclid3Mod euclid3_mod_rec(long long n, long long m, long long a, long long b,
 }
 } // namespace euclid_detail
 
+// 【速查】类欧三合一取模版：f、g、h 都对质数 mod (>3) 取模，n 可到 1e18
+// 用法: auto r = euclid3_mod(n, m, a, b, 1e9+7);  r.f / r.g / r.h
+// 复杂度: O(log max(a, m))
 Euclid3Mod euclid3_mod(long long n, long long m, long long a, long long b, long long mod) {
     long long inv2 = (mod + 1) / 2;              // mod 为奇质数
     long long inv3 = ksm(3, mod - 2, mod);       // 费马小定理
     return euclid_detail::euclid3_mod_rec(n, m, a, b, mod, inv2, inv3);
 }
 
+// 【速查】SOSDP（子集和 / 高维前缀和）
+// 用途: dp[mask] = Σ_{sub ⊆ mask} A[sub]；超集和把条件改成 !((j>>i)&1) 并加 dp[j | (1<<i)]
+// 用法: 照抄下面两重循环（外层枚举位，内层枚举 mask）
+// 复杂度: O(n · 2^n)
 // SOSDP（Sum Over Subsets）示例: O(n * 2^n) 求每个 mask 的子集权值和。
 // 自检示例: 原版示例 n=50 会分配 2^50 个 int，一运行即崩溃，现已改为可运行的 4 位示例。
 // 注意: 下面循环算的是“子集和” dp[mask] = Σ{ A[i] : (i & mask) == i }（与 FWT-or 正变换同向），

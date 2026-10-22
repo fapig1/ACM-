@@ -25,6 +25,10 @@ SPFA 求最短距离；
 5. 本模板不检测负费用环，不适合直接处理含负费用环的网络。
 6. 距离、总流量、总费用及中间乘加结果均需在 long long 安全范围内。
 7. DFS 使用递归，路径特别深时需要注意栈空间。
+// 【速查】最小费用最大流（SPFA + 最短路图上 Dinic 多路增广）
+// 用法: MinCostMaxFlowBatch mf(点数); mf.addEdge(u, v, cap, cost); auto [flow, cost] = mf.minCostMaxFlow(s, t);
+// 适用: 同费用的增广路很多时（如费用种类少）比普通版快；前提同样是无负费用环
+// 复杂度: 每轮 SPFA + Dinic，轮数 ≤ 不同最短路长度个数
 */
 struct MinCostMaxFlowBatch {
     using ll = long long;

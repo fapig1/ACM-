@@ -114,19 +114,33 @@ struct MinCostMaxFlow {
 /*==================================================
           带费用上下界最小费用可行循环流
 
-    addEdge(u, v, lower, upper, cost)
+    addEdge(u, v, lower, upper, cost)   要求 0 <= lower <= upper，cost 可正可负
 
     solve():
-        返回 {是否存在可行流, 最小费用}
+        返回 {是否存在可行流, 最小费用}；每个对象只调用一次
+
+    负费用（含负费用环）的处理（10.22 修复）:
+        原版把负费用边原样放进残量网络，遇到负费用环时 SPFA 死循环，
+        且 SSP 只沿 SS->TT 增广，找不到"环流本身"带来的收益。
+        现在负费用边先强制流满 upper（费用、盈亏立即结算），残量网络只放一条
+        反向"退流"边 v->u（容量 upper-lower，费用 -cost > 0）。
+        这样初始残量网络费用全部非负、没有负环，SSP 求出的就是全局最小费用循环流。
 ==================================================*/
 
+// 【速查】上下界最小费用可行循环流
+// 用途: 每条边流量必须在 [lower, upper] 内、每个点流入=流出，求最小总费用（无源汇的循环流）
+// 用法: LowerBoundMinCostFlow L(n);  int id = L.addEdge(u, v, lower, upper, cost);  auto [ok, cost] = L.solve();
+//       L.getFlow(id) -> 该边最终流量；点编号 0..n-1；solve() 只能调一次
+// 有源汇: 加一条 t->s、[0, INF]、费用 0 的边，就转成循环流
+// 复杂度: 一次最小费用流；支持负费用和负费用环
 struct LowerBoundMinCostFlow {
 
     struct OriginalEdge {
-        int u;
-        int id;
+        int u;      // 残量边的起点：非负费用边为 u，负费用边为 v
+        int id;     // 残量边在 mf.g[u] 中的下标
         ll lower;
         ll upper;
+        bool neg;   // 是否按"先流满再退流"处理
     };
 
     int n;
@@ -134,10 +148,8 @@ struct LowerBoundMinCostFlow {
 
     MinCostMaxFlow mf;
 
-    // balance[i] = 固定下界造成的 流入 - 流出
-    vector<ll> balance;
+    vector<ll> balance;   // 节点净流入，>0 时由 SS 补入，<0 时流向 TT
 
-    // 下界部分已经必然产生的费用
     ll baseCost = 0;
 
     vector<OriginalEdge> edges;
@@ -149,7 +161,6 @@ struct LowerBoundMinCostFlow {
           mf(n + 2),
           balance(n, 0) {}
 
-    // 返回这条原边的编号
     int addEdge(
         int u,
         int v,
@@ -157,32 +168,24 @@ struct LowerBoundMinCostFlow {
         ll upper,
         ll cost
     ) {
-        // 下界部分是必须走的
-        baseCost += lower * cost;
-
-        // 固定 lower 后造成节点流量不平衡
-        balance[u] -= lower;
-        balance[v] += lower;
-
-        // 剩余还能流 upper-lower
-        int id = mf.addEdge(
-            u,
-            v,
-            upper - lower,
-            cost
-        );
-
-        edges.push_back({
-            u,
-            id,
-            lower,
-            upper
-        });
-
+        if (cost >= 0) {
+            // 先流 lower，剩余 upper-lower 按原方向可选
+            baseCost += lower * cost;
+            balance[u] -= lower;
+            balance[v] += lower;
+            int id = mf.addEdge(u, v, upper - lower, cost);
+            edges.push_back({u, id, lower, upper, false});
+        } else {
+            // 先流满 upper，剩余 upper-lower 作为 v->u 的退流边，费用 -cost > 0
+            baseCost += upper * cost;
+            balance[u] -= upper;
+            balance[v] += upper;
+            int id = mf.addEdge(v, u, upper - lower, -cost);
+            edges.push_back({v, id, lower, upper, true});
+        }
         return (int)edges.size() - 1;
     }
 
-    // 返回 {是否可行, 最小费用}
     pair<bool, ll> solve() {
 
         ll need = 0;
@@ -190,7 +193,6 @@ struct LowerBoundMinCostFlow {
         for (int i = 0; i < n; i++) {
 
             if (balance[i] > 0) {
-                // 流入过多，需要把流送出去
                 mf.addEdge(
                     SS,
                     i,
@@ -202,7 +204,6 @@ struct LowerBoundMinCostFlow {
             }
 
             else if (balance[i] < 0) {
-                // 流出过多，需要补充流入
                 mf.addEdge(
                     i,
                     TT,
@@ -229,11 +230,10 @@ struct LowerBoundMinCostFlow {
     ll getFlow(int edgeId) {
         auto &x = edges[edgeId];
 
-        ll remain = mf.g[x.u][x.id].cap;
+        // 残量边上实际走过的流量
+        ll used =
+            (x.upper - x.lower) - mf.g[x.u][x.id].cap;
 
-        ll extra =
-            (x.upper - x.lower) - remain;
-
-        return x.lower + extra;
+        return x.neg ? x.upper - used : x.lower + used;
     }
 };

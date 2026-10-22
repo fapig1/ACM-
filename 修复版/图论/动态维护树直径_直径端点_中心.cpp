@@ -2,6 +2,12 @@
 using namespace std;
 #define int long long
 
+// 【速查】倍增 LCA 工具箱 + 逐点加入时动态维护直径/端点/中心
+// 工具函数（先 dfs(root) 并建好 par 倍增表）:
+//   lca(a, b)  dist(a, b)（带边权）  jump(x, k) -> x 向上 k 步
+//   u_to_v_len(u, v, len) -> 从 u 往 v 走 len 能到的最远点;  get_center(u, v) -> 路径中点（落在边上返回两端点）
+// 动态直径: 新点 x 加入时，新直径只可能是 (u,x) 或 (v,x)，比较 dist 即可（solve 里按 BFS 序加点）
+// 复杂度: 预处理 O(n log n)，每次查询 O(log n)
 const int MAXN=2e5+5;
 const int LOG=32;
 

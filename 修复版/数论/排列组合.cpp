@@ -30,6 +30,10 @@ int ksm(int x, int a, int mod){
     return ans;
 }
 
+// 【速查】阶乘 + 逆元阶乘 → 组合数 C(n,m)、排列数 A(n,m)（模质数）
+// 用法: 先 init()（预处理到 maxn）；C(n, m)、A(n, m) 直接 O(1) 查
+// 注意: 不检查越界，m < 0 或 m > n 时请自己先返回 0；n ≤ maxn
+// 复杂度: 预处理 O(maxn)，查询 O(1)
 // 预处理阶乘与阶乘逆元；使用 A/C 前必须调用一次
 void init(){
     fac[0] = 1;
@@ -52,6 +56,9 @@ int C(int n, int m){
     return fac[n] * inv[m] % mod * inv[n - m] % mod;
 }
 
+// 【速查】错排数 D(n)：n 个元素都不在原位的排列数
+// 用法: Derangement(n)；递推 D(n) = (n-1)(D(n-1) + D(n-2))，D(0)=1, D(1)=0
+// 复杂度: O(n)
 // 错排数 D(n)：1..n 的排列中满足 p_i != i 的排列个数
 // 约定 D(0)=1（空排列算一种）、D(1)=0、D(2)=1
 // 递推: D(n) = (n-1) * (D(n-1) + D(n-2))
@@ -70,6 +77,10 @@ int Derangement(int n){
     return dp[n];
 }
 
+// 【速查】卡特兰数 Cat(n) = C(2n, n) - C(2n, n+1)
+// 用途: 合法括号序列 / 二叉树形态 / 出栈序列 / 不越过对角线的路径 / 凸多边形三角剖分
+// 用法: 先 init()；CatalanNumber(n)，要求 2n ≤ maxn
+// 复杂度: O(1)
 // 卡特兰数 Cat(n) = C(2n,n)/(n+1) = C(2n,n) - C(2n,n-1)
 // 计数对象（都满足同一递推 Cat(n) = Σ_{i=0}^{n-1} Cat(i)Cat(n-1-i)）:
 //   * n 对括号的合法序列数；
@@ -79,6 +90,7 @@ int Derangement(int n){
 //   * 从 (0,0) 到 (n,n) 且不越过对角线 y=x 的单调路径数。
 // 注意: 减法可能得到负数，最后统一调整到 [0, mod)
 int CatalanNumber(int n){
+    if(n == 0) return 1;            // 10.22 修复: 原版 C(0, 1) 读 inv[-1]
     int ans = C(2 * n, n) - C(2 * n, n + 1);
     return (ans % mod + mod) % mod;
 }

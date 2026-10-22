@@ -3,6 +3,11 @@
 using namespace std;
 int mod=1e9+7;
 int minProblem=1;
+// 【速查】斜率优化 DP（单调队列维护凸包）
+// 用途: dp[i] = min/max_j { y(j) - k(i)·x(j) } + 只和 i 有关的项，且 k(i) 单调、x(j) 单调
+// 套路: 化成 b = y - k·x：b 含 dp[i]，(x, y) 只含 j，k 只含 i；求 min 维护下凸包(minProblem=1)，max 维护上凸包
+// 用法: 照 solve3 / solve(P6047) / solve2(P4072) 改 x、y、k 的计算；check 判斜率，cur 指向最优点
+// 复杂度: O(n)（k 不单调时改成凸包上二分，O(n log n)）
 //由于dp的形式千变万化，这里仅供思路参考
 struct pt{
     int x,y;
@@ -210,7 +215,7 @@ void solve2(){
     
 }
 
-main(){
+signed main(){
     ios::sync_with_stdio(false);
     cin.tie(0);
     int t=1;

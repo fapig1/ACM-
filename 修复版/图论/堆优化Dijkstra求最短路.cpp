@@ -11,6 +11,10 @@ vector<pair<int, int>>g[N];
 int dist[N];
 bool st[N];
 
+// 【速查】堆优化 Dijkstra（稀疏图）
+// 用法: g[x].push_back({w, y});   // 注意这里是 {边权, 终点}，和其他最短路模板相反！
+// 返回: 1 到 n 的最短路，到不了返回 -1；dist[] 是到所有点的距离；边权必须非负
+// 复杂度: O(m log m)
 //堆优化版dij,适用于稀疏图 O(m log m); 稠密图请用朴素 O(n^2) 版
 int dij()
 {

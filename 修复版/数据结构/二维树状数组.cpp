@@ -8,6 +8,9 @@ using ll = long long;
 // 变体二：矩形加 + 单点求和（二维差分，套变体一）
 // 变体三：矩形加 + 矩形求和（四个树状数组维护差分及其系数）
 
+// 【速查】二维树状数组 · 单点加 + 矩形求和
+// 用法: BIT2D b(n, m);  b.add(x, y, v);  b.ask(x, y) -> (1,1)~(x,y) 前缀和;  b.ask(x1, y1, x2, y2) -> 矩形和
+// 复杂度: O(log n · log m)，空间 O(nm)；1-based
 // 变体一：单点加 + 矩形求和
 struct BIT2D {
     int n, m;
@@ -42,6 +45,9 @@ struct BIT2D {
     }
 };
 
+// 【速查】二维树状数组 · 矩形加 + 单点查
+// 用法: BIT2D_RangeAddPointQuery b(n, m);  b.add(x1, y1, x2, y2, v);  b.ask(x, y) -> 该点当前值
+// 复杂度: O(log n · log m)
 // 变体二：矩形加 + 单点求和
 // 原理：维护二维差分，矩形加等价于差分数组上的 4 个单点加，
 // 单点查询等价于差分数组的前缀和，内部直接套变体一
@@ -67,6 +73,9 @@ struct BIT2D_RangeAddPointQuery {
     }
 };
 
+// 【速查】二维树状数组 · 矩形加 + 矩形求和
+// 用法: BIT2D_RangeAddRangeSum b(n, m);  b.add(x1, y1, x2, y2, v);  b.ask(x1, y1, x2, y2) -> 矩形和
+// 复杂度: O(log n · log m)，常数是普通版的 4 倍，空间 4·nm
 // 变体三：矩形加 + 矩形求和
 // 原理：对差分数组 d 维护前缀和时会出现 i、j 的系数，展开后需要 4 个树状数组：
 // 分别维护 d[i][j]、d[i][j] * i、d[i][j] * j、d[i][j] * i * j

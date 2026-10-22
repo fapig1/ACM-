@@ -7,6 +7,10 @@ const ll INF = 4e18;
 struct Edge { int to, rev; ll cap, cost; };
 int n;                      // 节点数(编号 0..n-1)
 vector<vector<Edge>> g;     // 加边时成对存放(正向 cap/反向 0, 反向 cost 取负)
+// 【速查】限额 k 的最小费用流（全局图裸函数，SPFA 版）
+// 用法: 设 n、g.assign(n, {})，用注释里的 addEdge 加边；auto [flow, cost] = minCostFlow(s, t, k);
+// 返回: {实际流量, 最小费用}；flow < k 说明达不到 k
+// 复杂度: O(k × SPFA)；无负费用环
 // 加边辅助:
 // void addEdge(int u, int v, ll cap, ll cost) {
 //     g[u].push_back({v, (int)g[v].size(), cap, cost});

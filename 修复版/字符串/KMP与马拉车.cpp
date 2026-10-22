@@ -12,6 +12,10 @@ int ne[N];
 //原版 getd() 无 '#' 分隔符且无边界检查(不能处理偶回文, 越界为 UB), 且从未被调用 —— 已重写
 //d[i]: 变换串 t = "#a#b#..." 中以 i 为中心的回文臂长, 恰等于原串对应回文的长度
 int d[N * 2];
+// 【速查】Manacher 最长回文子串
+// 用法: int len = manacher(s);    // 返回最长回文子串长度（奇偶都算）
+// 进阶: 调用后 d[i] 是变换串 "#a#b#" 中以 i 为中心的回文长度（= 原串回文长度）
+// 复杂度: O(n)
 int manacher(const string& str){
     string t = "#";
     for(char c : str){ t += c; t += '#'; }
@@ -27,6 +31,11 @@ int manacher(const string& str){
 }
 
 
+// 【速查】KMP（写在 main 里，1-based）
+// 用途: 模式串 p 在文本 s 中所有出现位置；ne[i] = p[1..i] 的最长相等真前后缀长度（border）
+// 用法: s1、s2 是 1-based 的文本/模式；第一个循环求 ne，第二个循环匹配，j == n 时找到一次（起点 i-n+1）
+// 常用: 最小循环节长度 = n - ne[n]
+// 复杂度: O(n + m)
 signed main(){
     ios::sync_with_stdio(false);
     cin.tie(0);

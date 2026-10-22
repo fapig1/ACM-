@@ -1,5 +1,9 @@
 #include<bits/stdc++.h>
 using namespace std;
+// 【速查】字典树 Trie（前缀计数）
+// 用法: insert(s) 插入；query(s) -> 以 s 为前缀的已插入串个数；字符集 A-Z a-z 0-9（hashn 映射）
+// 多组数据: solve 末尾已把用过的 ch/cnt 清零
+// 复杂度: 插入/查询 O(|s|)；空间 N × 70 个 int，N 按"所有串总长"开
 /* 原版有 #define int long long, 导致 ch[3e6][70] 每格 8B 共 1.68GB —— 已移除。
  * 字符集 62 (大写/小写/数字), 每个节点 70 个儿子槽, int(4B) 下:
  *   N=1e5 → 28MB; N=5e5 → 140MB。按题目"所有串总长"上限调整 N。 */

@@ -16,6 +16,14 @@ using namespace std;
  *       scanf("%d") 读 int 变量会因类型不符得到垃圾值, main 请写 signed main。
  * ==========================================================================*/
 
+// 【速查】李超线段树 · double 最小值版
+// 用途: 不断插入直线/线段，查某个整数 x 处所有线中的最小 y（斜率优化 DP 的利器）
+// 用法: LC_double::LCSeg sg(n);              // x 取值 1..n
+//       sg.addLine(k, b);                      // 插入整条直线 y = kx + b
+//       Line L(k, b); L.exists = true; sg.addSeg(1, 1, n, l, r, L);   // 只在 [l,r] 生效的线段，exists 必须置 true
+//       sg.ask(1, 1, n, x) -> 最小 y；没有线时返回 INF(1e18)
+// 改最大值: 按代码里"更改处"把比较符号和 INF 反过来
+// 复杂度: 直线 O(log n)，线段 O(log² n)，查询 O(log n)
 // ==================== 版本1: double 最小值版 ====================
 namespace LC_double {
 
@@ -95,6 +103,11 @@ struct LCSeg{
 
 } // namespace LC_double
 
+// 【速查】李超线段树 · 离散化 int 最大值版
+// 用途: x 坐标很大/稀疏（如前缀和），先离散化再查最大 y
+// 用法: coords = 所有可能查询的 x，sort + unique；LC_disc::LCSeg sg(coords.size(), coords);
+//       sg.addLine(k, b);  sg.ask(1, 1, m, id) -> 最大 y，id = x 在 coords 里的下标 (1-based)
+// 复杂度: 插入/查询 O(log m)
 // ==================== 版本2: 离散化 int 最大值版 ====================
 namespace LC_disc {
 
@@ -168,6 +181,13 @@ struct LCSeg {
 
 } // namespace LC_disc
 
+// 【速查】李超线段树 · __int128 分数精确最小值版
+// 用途: k、b 是分数，double 会卡精度时用；查询点为整数
+// 用法: LC_frac::LCSegFrac sg(n);
+//       sg.addLine(p, q, u, v);               // y = (p/q)x + (u/v)
+//       sg.addSeg(l, r, Frac(p,q), Frac(u,v)); // 只在 [l,r] 生效
+//       sg.ask(x) -> Frac 最小值（.p/.q）
+// 复杂度: 同 double 版，常数大一些（__int128 + 约分）
 // ==================== 版本3: __int128 分数精确版 ====================
 namespace LC_frac {
 

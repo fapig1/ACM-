@@ -2,6 +2,11 @@
 using namespace std;
 using ll = long long;
 const ll INF = 4e18;
+// 【速查】最小费用最大流（SPFA 版 SSP）
+// 用法: MinCostMaxFlow mf(点数); mf.addEdge(u, v, cap, cost); auto [flow, cost] = mf.minCostMaxFlow(s, t);
+// 返回: {最大流, 在此流量下的最小费用}；最大费用就把 cost 取负、答案取负
+// 前提: 可以有负费用边，但不能有负费用环（否则死循环）
+// 复杂度: O(流量 × SPFA)，一般够用
 struct MinCostMaxFlow {
     struct Edge {
         int to, rev;

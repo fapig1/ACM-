@@ -2,6 +2,11 @@
 using namespace std;
 using ll = long long;
 const ll INF = 4e18;
+// 【速查】最小费用流（Dijkstra + 势能，可限制流量 k）
+// 用法: MinCostMaxFlow mf(点数); mf.addEdge(u, v, cap, cost); auto [flow, cost] = mf.minCostFlow(s, t, k);
+// 返回: 最多流 k 单位时的 {流量, 最小费用}；k 传 INF 就是最小费用最大流；flow < k 说明流不到 k
+// 前提: 允许负费用边（先 SPFA 一次求初始势能），不能有负费用环
+// 复杂度: O(流量 × m log n)，比 SPFA 版稳
 // 用dij()代替spfa
 struct MinCostMaxFlow {
     struct Edge {

@@ -10,6 +10,10 @@ int sz[N];
 int best = INT_MAX;
 vector<int> centroid;
 
+// 【速查】树的重心
+// 用途: 找删掉后"最大剩余连通块"最小的点（点分治的分治中心）
+// 用法: 建双向边后 dfs(1, 0)；centroid 里是重心（1 或 2 个），best 是最大块大小
+// 复杂度: O(n)；递归，深链注意爆栈
 void dfs(int u, int fa) {
     sz[u] = 1;
 

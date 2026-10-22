@@ -17,6 +17,11 @@ int curscc=0;					//新图大小
 
 int n,m;
 vector<pair<int,int>> edge;   //不预填,直接push_back
+// 【速查】Tarjan 强连通分量 + 缩点（有向图 → DAG）
+// 用途: 有向图里"互相可达"的点缩成一个点，之后在 DAG 上做拓扑 / DP（如最大点权路径）
+// 用法: gra[a].push_back(b); edge.push_back({a, b}); 读 val[]; build();
+// 结果: scc[i] = 点 i 所属分量 (0..curscc-1)，sccval[c] = 分量点权和，sccgra = 缩点后的 DAG（可能有重边）
+// 复杂度: O(n + m)；点 1-based；递归实现，1e6 深链会爆栈
 void tarjan(int ind){
     dfn[ind]=cur;
     low[ind]=cur;

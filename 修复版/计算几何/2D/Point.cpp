@@ -22,6 +22,9 @@ int sgn(double x) {
     return x < 0 ? -1 : 1;
 }
 
+// 【速查】二维点/向量 Pt
+// 运算: a + b、a - b、a * k（数乘）、a / k、a * b（点积）、a % b（叉积，>0 表示 b 在 a 逆时针侧）
+// 工具: dis(a) 长度、ddis(a) 长度平方、Angle(a, b) 夹角 [0, π]；== 用 eps 比较
 // 二维点/向量: 同时承担“点”和“从原点出发的向量”两种角色
 struct Pt{
     double x, y;
@@ -68,14 +71,15 @@ double ddis(Pt a){
 
 // 两向量夹角, 返回 [0, π], 不带方向
 // !!! a 或 b 是零向量时会**静默返回 0**(而不是 nan), 需要自己先判
-// 两向量夹角, 返回 [0, π], 不带方向
-// !!! a 或 b 是零向量时会**静默返回 0**(而不是 nan), 需要自己先判
 // 用 atan2 而不是 acos: acos 在接近 ±1 处丢精度,
 // 老写法 acos(a*b/|a|/|b|) 对 Angle((1,0),(1,1e-8)) 会直接返回 0
 double Angle(Pt a, Pt b){
     return atan2(fabs(a % b), a * b);
 }
 
+// 【速查】方向判断
+// Cross(a, b, c): 点 c 在有向直线 a→b 的 1 左侧 / 0 共线 / -1 右侧；cross(a, b, c) 返回原始叉积（= 2 倍有向面积）
+// In_one_line(a, b, c): 三点共线。坐标绝对值 ≤ 9.4e7，否则 double 叉积失真
 //在直线的哪边
 // 点在直线上, 返回 0 (三点共线)
 // 点在直线的逆时针方向, 返回 1
@@ -134,6 +138,7 @@ int Cross(Pt c, Line l){
 bool In_one_line(Pt a, Pt b, Pt c){
     return !sgn((b - a) % (c - a));
 }
+// 【速查】距离: dist_ptl(p, a, b) 点到直线 ab；dist_pts(p, a, b) 点到线段 ab；dist_sts(a, b, c, d) 线段到线段。均 O(1)
 // 点到直线距离
 // a == b 时退化: 不加保护会返回 nan, 而 sgn(nan) == 1, 会让 LWC 把"圆心处的退化直线"判成相离
 double dist_ptl(Pt p, Pt a, Pt b){
@@ -149,6 +154,8 @@ double dist_pts(Pt p, Pt a, Pt b){
     if(sgn(v1 * v3) > 0) return dis(p - b);
     return fabs((v1 % v2) / dis(v1));
 }
+// 【速查】线段关系: OnSegment(p, a, b) 点在线段上（含端点）；
+//   Intersect_line_seg(a, b, c, d) 直线 ab 与线段 cd 相交；Intersect_seg(a, b, c, d) 两线段相交（含端点接触、共线重叠）
 //点在线段上
 // 注意 sgn 用的是绝对 eps, 叉积量级是坐标的平方: 坐标量级远小于 1 时会误判,
 // 例如 OnSegment((5e-5, 5e-6), (0,0), (1e-4,0)) 返回 true, 但那个点偏离了线段长度的 5%
@@ -182,6 +189,8 @@ double dist_sts(Pt a, Pt b, Pt c, Pt d){
         dist_pts(d, a, b),
     });
 }
+// 【速查】直线平行与交点: Line_parallel(A, B)（重合也算平行）；
+//   Inter_Line_Pt(a, b, c, d) / Inter_Line_Pt(L1, L2) 求两直线交点，调用前先判不平行
 //直线平行(两直线重合时也返回 true)
 // 叉积必须除以两个方向向量的长度再和 eps 比, 否则短线段会被误判:
 // 长 1e-5 的水平线和长 1e-5 的竖直线互相垂直, 但叉积只有 1e-10 < eps, 不归一化就判成平行
@@ -209,6 +218,10 @@ Pt Inter_Line_Pt(Line a, Line b) {
     return a.s + v1 * t;
 }
 
+// 【速查】半平面交（S&I 排序增量法）
+// 用法: L 里放有向直线 Line(s, e)，合法区域在每条线的左侧；先加一圈大边界框保证有界
+// 返回: 交出的凸多边形顶点（逆时针）；为空表示无解。求面积接 area(res)
+// 复杂度: O(n log n)
 // 半平面交: 输入一组有向直线，求它们左侧半平面的交集，返回交多边形的顶点（逆时针）。
 // 步骤:
 //   1) 按极角排序，极角相同的只保留约束最强（最靠左）的一条；
@@ -307,6 +320,7 @@ vector<Pt> getHalfPlaneIntersection(vector<Line>& L) {
 double Triangle_area(Pt A, Pt B, Pt C){
     return fabs((B - A) % (C - A)) / 2;
 }
+// 【速查】多边形面积: area(p)，p 按顺/逆时针给出，返回无向面积；Triangle_area(A, B, C) 三角形面积。O(n)
 // 多边形面积: 以 p[0] 为扇心拆成 n-2 个三角形，叉积有向面积求和后取绝对值。
 // 对凸/凹的**简单多边形**都成立（边不自交）；顺时针/逆时针给出均可。
 // !!! 自交多边形会正负相消, 比如蝴蝶结形状返回 0。
@@ -322,6 +336,8 @@ double area(vector<Pt>& p){
     //return S / 2;//有向面积
 }
 
+// 【速查】点在多边形内（射线法，任意简单多边形）
+// 返回: 1 内部 / 0 外部 / -1 在边上。O(n)；凸多边形大量查询请用 InConvex（O(log n)）
 // 点在多边形内(射线法): 从 P 向 +x 方向发射线，统计与边的交点个数，奇数次在内部。
 // 适用于任意简单多边形, 顺时针逆时针给出都可以；O(n)。
 // 返回: -1 在边上，1 在内部，0 在外部。
@@ -341,6 +357,7 @@ int InPolygon(Pt P, vector<Pt>& p) {
     }
     return flag;
 }
+// 【速查】判断凸多边形 Is_contex(p)（名字是 convex 的拼写错误）；自交多边形会误判成凸。O(n)
 // 是否为凸多边形 (convex; 函数名 Is_contex 是历史拼写错误, 搜 convex 搜不到它)
 // 做法: 绕一圈检查所有拐向的符号是否一致（允许共线点），O(n)。
 // !!! 只检查拐向是否一致, **自交多边形会被判成凸**: 五角星实测返回 true
@@ -358,6 +375,11 @@ bool Is_contex(vector<Pt>& p){
 }
 
 
+// 【速查】圆 Circle(o, r) 及相关关系
+// PWC(p, c) 点和圆: 1 内 / 0 上 / -1 外；LWC(A, B, c) 直线和圆: 1 相交 / 0 相切 / -1 相离
+// Intersection_line_circle(A, B, c) / Intersection_circle_circle(A, B) -> 交点 vector（0/1/2 个）
+// Circle_with_circle(A, B) -> 两圆位置关系编号；TangentPt_Pt_circle(p, c) -> 圆外一点的两个切点
+// SectorArea(A - o, B - o, r) 扇形有向面积（传相对圆心的向量！）
 // ------ 圆 ------
 // 圆: 圆心 o + 半径 r（r >= 0）
 struct Circle{
@@ -504,6 +526,7 @@ vector<Pt> TangentPt_Pt_circle(Pt p, Circle c) {
     };
 }
 
+// 【速查】三角形外接圆 get_circumcircle(A, B, C) / 内切圆 get_incircle(A, B, C)；三点不能共线
 // 求三角形外接圆: 圆心是三条中垂线的交点，半径到任一顶点。
 // !!! 前置条件: A、B、C 不共线。共线时 D = 0, 返回的圆心是 (-inf, inf)、半径 inf, 没有任何提示
 Circle get_circumcircle(Pt A, Pt B, Pt C) {
@@ -525,6 +548,9 @@ Circle get_incircle(Pt A, Pt B, Pt C) {
     Pt p = (A * a + B * b + C * c) / (a + b + c);
     return Circle(p, dist_ptl(p, A, B));
 }
+// 【速查】整点与皮克定理（顶点必须是整点）
+// IntegerPt_on_seg(A, B) 线段上整点数（含端点）；IntegerPt_on_polygon(p) 边界整点 b；area2(p) 两倍面积
+// IntegerPt_in_polygon(p) 内部整点 a；IntegerPt_polygon(p) 内部+边界。皮克: S = a + b/2 - 1
 // 要保证传入的点是整点
 //线段上的整点个数
 //注意按照要求修改返回值
@@ -603,6 +629,7 @@ int getQuadrant(Pt p, Pt center) {
     return 0;
 }
 
+// 【速查】极角排序 polarSort(pts, center)：按象限 + 叉积逆时针排序，共线时近的在前。O(n log n)
 // !!! center 必须按值传, 不能按引用。polarSort(p, p[0]) 这种写法下 sort 会移动 p[0],
 //     按引用捕获的 center 排到一半就变了, 比较函数自相矛盾 -> 结果错乱 + std::sort UB
 //     (实测 n = 30 就能和"绕副本排序"给出不同结果)
@@ -628,6 +655,9 @@ void polarSort(vector<Pt>& Pts, Pt center) {
     });
 }
 
+// 【速查】Andrew 凸包
+// 用法: auto hull = Andrew(p);  返回逆时针凸包顶点（不含共线点），从字典序最小点开始；会打乱 p 的顺序
+// 复杂度: O(n log n)
 // 凸包算法 (Andrew 单调链)，O(n log n)
 // 做法: 先按 x 再按 y 排序；顺序扫描维护下凸壳，再逆序扫描维护上凸壳，拼起来。
 //       弹栈条件 Cross <= 0 表示遇到右转或共线，因此边上的共线点会被删掉，只留角点。
@@ -666,6 +696,7 @@ int norm_idx(int x, int n){
     return x;
 }
 
+// 【速查】点在凸包内（二分）：InConvex(q, hull) -> 1 内部 / 0 边上 / -1 外部；hull 用 Andrew 的结果。O(log n)
 // 点在已排序凸包中的位置：
 // 返回 -1 表示外部，0 表示边界上，1 表示内部
 // 要求 hull 为逆时针排序的凸包
@@ -721,6 +752,9 @@ bool VisibleEdge(Pt q, const vector<Pt>& hull, int idx){
     return Cross(hull[norm_idx(idx, n)], hull[norm_idx(idx + 1, n)], q) < 0;
 }
 
+// 【速查】凸包外一点的两条切线
+// TangentIndexConvex(q, hull) -> 两个切点下标（q 不在外部返回 {-1, -1}）；TangentPointConvex 直接返回切点坐标
+// 复杂度: 定位 O(log n) + 沿可见边线性扩展（最坏 O(n)）
 // 返回外点 q 到凸包的两个切点下标（即两条切线在凸包上的顶点）。
 // first 是可见边链起点对应的切点，second 是可见边链终点之后的那个顶点；
 // 两者按凸包逆时针顺序给出。若 q 不在凸包外部，返回 {-1, -1}；n <= 2 时退化为端点/整条线段。
@@ -764,14 +798,17 @@ bool InTangentCone(Pt a, Pt b, const vector<Pt>& hull){
     return Cross(a, hull[idx.first], b) <= 0 && Cross(a, hull[idx.second], b) >= 0;
 }
 
+// 【速查】线段与凸包是否相交（含端点在内部、相切）：Intersect_seg_convex(a, b, hull)
+// 复杂度: InConvex O(log n) + 求切点最坏 O(n)
 // 判断线段 ab 是否与凸包相交（含端点落在内部/边界、相切）。
 // 做法: 任一端点在凸包内 -> 相交；否则线段穿过凸包当且仅当 a、b 分别在对方的切线锥内。
-// 要求 hull 为逆时针排序的凸包；O(log n)。
+// 要求 hull 为逆时针排序的凸包；定位 O(log n)，求切点时沿可见边扩展，最坏 O(n)。
 bool Intersect_seg_convex(Pt a, Pt b, const vector<Pt>& hull){
     int n = hull.size();
     if(n == 0) return false;
     if(n == 1) return OnSegment(hull[0], a, b);
     if(n == 2) return Intersect_seg(a, b, hull[0], hull[1]);
+    if(a == b) return InConvex(a, hull) >= 0;   // 10.22 修复: 退化线段原版在凸包外时误判为相交
 
     if(InConvex(a, hull) >= 0 || InConvex(b, hull) >= 0) return true;
     return InTangentCone(a, b, hull) && InTangentCone(b, a, hull);

@@ -19,6 +19,9 @@ const ll INF = 4e18;
 4. 总流量必须能用 long long 表示。
 */
 
+// 【速查】Dinic 最大流（多路增广版，常数更小）
+// 用法: Dinic mf(点数); mf.addEdge(u, v, cap);  ll f = mf.maxFlow(s, t);   // 注意是 maxFlow（大写 F）
+// 复杂度: 同 Dinic；卡常时用这个
 // Dinic批量增广最大流
 struct Dinic {
     using ll = long long;

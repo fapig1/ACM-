@@ -21,6 +21,8 @@ using namespace std;
 
 const int mod = 1e9 + 7;
 
+// 【速查】防溢出模乘 mul(a, b, m) 与快速幂 ksm(x, a, m)（__int128，m 可到 1e18）
+// 复杂度: mul O(1)，ksm O(log a)
 // ============================== 基础工具 ==============================
 // 模乘防溢出: 计算 a*b mod m，要求 0 <= a,b < m（否则先取模）
 // 用 __int128 承接 64 位乘积；m 可以接近 2^63。
@@ -56,6 +58,8 @@ int exgcd(int a, int b, int &x, int &y){
     return d;
 }
 
+// 【速查】模逆元（exgcd 版，m 不必是质数）
+// 用法: inv(a, m)，要求 gcd(a, m) = 1；m 是质数时也可用 ksm(a, m-2, m)
 // 模逆元: 返回 a^{-1} mod m，要求 gcd(a,m)=1（m 不必为质数）。
 // 结果为 [0,m) 内的最小非负解；m = 1 时无意义。
 int inv(int a, int m){
@@ -77,6 +81,9 @@ int oula_phi(int n){
     return ans;
 }
 
+// 【速查】Miller-Rabin 素性测试（2^64 内确定性）
+// 用法: is_prime(n)，n 到 1e18 都可以
+// 复杂度: O(7 · log n) 次模乘
 // ============================== Miller-Rabin 素性测试 ==============================
 // 费马测试 + 二次探测。底数集为 2^64 内的确定性集合(无需随机)。
 // 原理: 把 n-1 写成 d * 2^s（d 为奇数），对底数 a 检查
@@ -138,6 +145,9 @@ int pollard_rho(int n){
     }
 }
 
+// 【速查】Pollard-Rho 大数质因数分解
+// 用法: map<int,int> mp; factor(n, mp);   // mp[p] = 质因子 p 的次数，n 到 1e18
+// 复杂度: 期望 O(n^{1/4})，350 个 1e18 级合数约 1.4s
 // 质因数分解(带指数)，结果存入 mp（可累加多次调用）。使用示例:
 //   map<int,int> mp; factor(341550071728321, mp);
 //   mp = {10670053: 1, 32010157: 1}
@@ -154,6 +164,9 @@ void factor(int n, map<int,int>& mp){
     factor(n / d, mp);
 }
 
+// 【速查】扩展欧拉定理降幂：a^b mod p，b 是超大十进制字符串
+// 用法: euler_pow(a, b, p)；不要求 gcd(a, p) = 1；p ≥ 2
+// 复杂度: O(|b| + √p)
 // ============================== 欧拉降幂(扩展欧拉定理) ==============================
 // 对任意 a, p（不要求 gcd(a,p)=1）:
 //   b <  φ(p) 时  a^b ≡ a^b (mod p)
@@ -178,38 +191,47 @@ int euler_pow(int a, string b, int p){
     return ksm(a, e, p);
 }
 
+// 【速查】BSGS 离散对数：求最小 x ≥ 0 使 a^x ≡ b (mod p)，要求 gcd(a, p) = 1
+// 用法: bsgs(a, b, p)，无解返回 -1；gcd 不为 1 时用 exbsgs
+// 复杂度: O(√p) 时间和空间
 // ============================== BSGS 离散对数 ==============================
 // 求 a^x ≡ b (mod p) 的最小非负整数解 x，要求 gcd(a, p) = 1（p 不必为质数）。
 // 大步小步: 令 m = ⌈√p⌉，把 x 写成 x = i*m - j（0 <= j < m），
 //           则 a^{i*m} ≡ b*a^j；先枚举 j 把 b*a^j 丢进哈希表，
 //           再枚举 i 查表，命中即得 x = i*m - j。
 // 复杂度 O(√p) 时间与空间；无解返回 -1。
-// 注意: p 很大时 sqrt(p) 的 double 精度可能差 1，必要时用整数开方；
+// 最小性: 同一个 b*a^j 值只保留最大的 j，并从 i=1 起枚举；第一次命中的 i 最小，
+//         同一 i 下 j 最大，故 x=i*m-j 就是最小正解（x=0 已由 b==1 特判）。
+// 注意: 乘法统一走 mul（__int128），p 可到 1e18 级（但 O(√p) 时间/空间要可接受）；
 //       unordered_map 最坏 O(√p) 但常数较大，卡常可换手写哈希。
+// 10.22 修复: 原版保留最小的 j 且从 i=0 起，返回的不一定是最小解（a=99,b=239,p=20 应为 1 返回 5）；
+//            原版 cur*a%p 未防溢出，p > 3e9 即错。
 // 验证: bsgs(2, 3, 5) = 3 (2^3 ≡ 3 mod 5)。
 int bsgs(int a, int b, int p){
     a %= p;
     b %= p;
     if(b == 1 || p == 1) return 0;
-    int m = ceil(sqrt(p));
+    int m = sqrtl((long double)p);
+    while(m * m < p) m++;              // m = ⌈√p⌉，整数修正避免浮点误差
     unordered_map<int,int> mp;
     int cur = b;
-    for(int j = 0; j < m; j++){        // baby step: b * a^j
-        if(!mp.count(cur)) mp[cur] = j;
-        cur = cur * a % p;
+    for(int j = 0; j < m; j++){        // baby step: b * a^j，同值保留最大的 j
+        mp[cur] = j;
+        cur = mul(cur, a, p);
     }
     int step = ksm(a, m, p);           // giant step 步长 a^m
     cur = 1;
-    for(int i = 0; i <= m; i++){
-        if(mp.count(cur)){
-            int x = i * m - mp[cur];
-            if(x >= 0) return x;
-        }
-        cur = cur * step % p;
+    for(int i = 1; i <= m; i++){
+        cur = mul(cur, step, p);
+        auto it = mp.find(cur);
+        if(it != mp.end()) return i * m - it->second;
     }
     return -1;
 }
 
+// 【速查】扩展 BSGS：a、p 不必互质，求最小 x ≥ 0 使 a^x ≡ b (mod p)
+// 用法: exbsgs(a, b, p)，无解返回 -1
+// 复杂度: O(√p + log² p)
 // 扩展 BSGS: gcd(a, p) 任意。逐次消去公因子，把方程归约到普通 BSGS。
 // 推导: 设 d = gcd(a,p)。若 d ∤ b 且 b != 1，则无解；
 //       否则两边同除以 d，得到 (a/d)*a^{x-1} ≡ b/d (mod p/d)，累计系数 base。
@@ -226,11 +248,11 @@ int exbsgs(int a, int b, int p){
         b /= d;
         p /= d;
         k++;
-        base = base * (a / d) % p;
+        base = mul(base, (a / d) % p, p);
         if(base == b) return k;        // 消到只剩常数的特判
         d = __gcd(a, p);
     }
-    int t = bsgs(a, b * inv(base, p) % p, p);
+    int t = bsgs(a, mul(b, inv(base, p), p), p);
     return t == -1 ? -1 : t + k;
 }
 
@@ -258,6 +280,9 @@ int C_small(int n, int m, int p){
          * ksm(lucas_fac[n - m], p - 2, p) % p;
 }
 
+// 【速查】Lucas 定理：C(n, m) mod p，p 是小质数（≤ 1e6），n、m 可以很大
+// 用法: lucas_init(p); lucas(n, m, p)；换 p 要重新 lucas_init
+// 复杂度: 预处理 O(p)，单次 O(log_p n · log p)
 // Lucas 主递归: 每层剥掉 p 进制最低位，深度 O(log_p n)
 int lucas(int n, int m, int p){
     if(m == 0) return 1;
@@ -305,6 +330,9 @@ int C_mod_pk(int n, int m, int p, int k){
     return res;
 }
 
+// 【速查】扩展 Lucas：C(n, m) mod M，M 任意（不必是质数）
+// 用法: exlucas(n, m, M)；要求 n ≥ m，M 的每个质数幂因子 ≤ 1e6
+// 复杂度: O(Σ p^k + log)
 // C(n,m) mod M，M 任意合数: 分解 M = ∏ p^k，逐块用 exLucas 求值，再 CRT 合并。
 // 合并: 对每个 p^k 算 a，贡献 a * (M/p^k) * inv(M/p^k mod p^k, p^k)（模 M）。
 // 复杂度: 对 M 的每个质因子做一次 O(p^k) 预处理，总 O(∑ p^k + log M * log n)。
@@ -333,6 +361,9 @@ int exlucas(int n, int m, int M){
     return ans;
 }
 
+// 【速查】求质数 p 的最小原根
+// 用法: primitive_root(p)，p 为奇质数（p = 2 时原根是 1，要特判）
+// 复杂度: O(√p + 尝试次数 · ω(p-1) · log p)
 // ============================== 阶与原根 ==============================
 // 阶: 最小的 k > 0 使 a^k ≡ 1 (mod p)，记 ord_p(a)。存在性要求 gcd(a,p)=1，
 //     且由拉格朗日定理 ord_p(a) | φ(p) = p-1（p 为质数时）。
@@ -364,6 +395,9 @@ int primitive_root(int p){
     }
 }
 
+// 【速查】Cipolla 二次剩余：解 x² ≡ n (mod p)，p 为奇质数
+// 用法: x = cipolla(n, p)；无解返回 -1；另一个解是 p - x
+// 复杂度: 期望 O(log p)
 // ============================== 二次剩余(Cipolla) ==============================
 // 解 x^2 ≡ n (mod p)，p 为奇质数。
 // 判存在: 欧拉判别法，n^{(p-1)/2} ≡ 1 时有解，≡ -1 时无解（n=0 解为 0）。
@@ -406,6 +440,9 @@ int cipolla(int n, int p){
 // 验证: solve(10) = 263 (手算: f(1..10)=1,2,6,12,20,12,42,56,72,40)。
 const int MIN25_N = 1000005;         // ≥ 2√n
 
+// 【速查】Min_25 筛：积性函数前缀和 Σ_{i≤n} f(i)，n 到 1e10~1e11
+// 用法: min25::solve(n)（本例 f(p^e) = p^e(p^e - 1)，P5325）；换函数改 g1/g2 的初值和 S 里的 f(p^e)
+// 复杂度: O(n^{3/4} / log n)
 namespace min25 {
     long long n, sq;
     int tot;
@@ -426,7 +463,8 @@ namespace min25 {
     int S(long long x, int y){
         if(x <= 1) return 0;
         if(y < (int)primes.size() && primes[y] > x) return 0;
-        if(y >= (int)primes.size() && primes.back() > x) return 0;
+        // 10.22 修复: n<4 时 primes 为空，原版 primes.back() 是 UB，solve(2)/solve(3) 返回 1（应为 3/9）
+        if(y >= (int)primes.size() && !primes.empty() && primes.back() > x) return 0;
         int k = idx(x);
         // 素数贡献 = 全部素数的 (p^2-p) − 前 y 个素数的 (p^2-p)
         int ans = (g2[k] - g1[k] - (sp2[y] - sp1[y]) % mod + 2LL * mod) % mod;

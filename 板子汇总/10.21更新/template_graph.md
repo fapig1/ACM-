@@ -35,6 +35,11 @@ int curscc=0;					//新图大小
 
 int n,m;
 vector<pair<int,int>> edge;   //不预填,直接push_back
+// 【速查】Tarjan 强连通分量 + 缩点（有向图 → DAG）
+// 用途: 有向图里"互相可达"的点缩成一个点，之后在 DAG 上做拓扑 / DP（如最大点权路径）
+// 用法: gra[a].push_back(b); edge.push_back({a, b}); 读 val[]; build();
+// 结果: scc[i] = 点 i 所属分量 (0..curscc-1)，sccval[c] = 分量点权和，sccgra = 缩点后的 DAG（可能有重边）
+// 复杂度: O(n + m)；点 1-based；递归实现，1e6 深链会爆栈
 void tarjan(int ind){
     dfn[ind]=cur;
     low[ind]=cur;
@@ -130,6 +135,10 @@ vector<int> g[N];
 int d[N];
 queue<int> q;
 
+// 【速查】拓扑排序（Kahn / BFS 入度法）
+// 用法: g[x].push_back(y); d[y]++;  然后 top()
+// 返回: true 时 arr 是一个拓扑序；false 说明有环（arr.size() < n）
+// 复杂度: O(n + m)；想要字典序最小的拓扑序把 queue 换成小根堆
 bool top()
 {
     for (int i = 1; i <= n; i++)
@@ -199,6 +208,10 @@ int n;
 vector<int> g[N];
 int dist[N];
 
+// 【速查】树的直径（两次 DFS）
+// 用法: s = get_far(1); t = get_far(s);  直径 = dist[t]，端点是 s、t
+// 注意: 边权非负才能用两次 DFS（有负边权用树形 DP）；本版无边权，有边权把 +1 改成 +w
+// 复杂度: O(n)；递归，深链注意爆栈
 void dfs(int u, int fa) {
     for (int v : g[u]) {
         if (v == fa) continue;
@@ -254,6 +267,10 @@ int sz[N];
 int best = INT_MAX;
 vector<int> centroid;
 
+// 【速查】树的重心
+// 用途: 找删掉后"最大剩余连通块"最小的点（点分治的分治中心）
+// 用法: 建双向边后 dfs(1, 0)；centroid 里是重心（1 或 2 个），best 是最大块大小
+// 复杂度: O(n)；递归，深链注意爆栈
 void dfs(int u, int fa) {
     sz[u] = 1;
 
@@ -310,6 +327,12 @@ int main() {
 ```cpp
 #define int long long
 
+// 【速查】倍增 LCA 工具箱 + 逐点加入时动态维护直径/端点/中心
+// 工具函数（先 dfs(root) 并建好 par 倍增表）:
+//   lca(a, b)  dist(a, b)（带边权）  jump(x, k) -> x 向上 k 步
+//   u_to_v_len(u, v, len) -> 从 u 往 v 走 len 能到的最远点;  get_center(u, v) -> 路径中点（落在边上返回两端点）
+// 动态直径: 新点 x 加入时，新直径只可能是 (u,x) 或 (v,x)，比较 dist 即可（solve 里按 BFS 序加点）
+// 复杂度: 预处理 O(n log n)，每次查询 O(log n)
 const int MAXN=2e5+5;
 const int LOG=32;
 
@@ -581,6 +604,11 @@ struct Seg{
 
 };
 
+// 【速查】树链剖分（重链剖分 + 线段树）
+// 用途: 树上路径加/路径和、子树加/子树和、LCA
+// 用法: HLD h(n); h.addEdge(u, v); h.build(a, root);       // a 为 1-based 点权
+//       h.updatePath(u, v, x)  h.askPath(u, v)  h.updateTree(u, x)  h.askTree(u)  h.getLCA(u, v)  h.getDist(u, v)
+// 复杂度: 预处理 O(n)，路径操作 O(log² n)，子树操作 O(log n)
 //树链剖分
 struct HLD{
     int n, timer;
@@ -701,6 +729,10 @@ vector<pair<int, int>>g[N];
 int dist[N];
 int back[N];
 bool st[N];
+// 【速查】Bellman-Ford（最多经过 k 条边的最短路）
+// 用法: g[x].push_back({y, w}); 设好 n、k 后 bell()
+// 返回: 1 到 n 最多 k 条边的最短距离；到不了返回 0x3f3f3f3f3f3f3f3f（可有负边）
+// 复杂度: O(k · m)；每轮必须用上一轮的 back 数组，否则会"串联"超过 k 条边
 //bellman-ford算法，有边数限制为k的单源最短路
 int bell()
 {
@@ -755,6 +787,10 @@ int n, m, u, v, w;
 vector<pair<int,int> > arr[N];
 int st[N], dist[N], cnt[N];
 queue<int> q;
+// 【速查】SPFA 判负环
+// 用法: arr[u].push_back({v, w}); spfa() 直接输出 Yes(有负环) / No
+// 说明: 所有点一开始都入队（相当于超级源点），能判整张图任意位置的负环；多组数据记得清空 dist/cnt/st
+// 复杂度: 最坏 O(nm)
 //spfa判断负环
 void spfa()
 {
@@ -823,6 +859,10 @@ int x, y, z;
 vector<pair<int, int>>g[N];
 int dist[N];
 bool st[N];
+// 【速查】SPFA 单源最短路（可有负边，无负环）
+// 用法: g[x].push_back({y, w}); spfa()
+// 返回: 1 到 n 的最短路，到不了返回 0x3f3f3f3f3f3f3f3f；dist[] 是到所有点的距离
+// 复杂度: 一般很快，最坏 O(nm)（会被卡）；没有负边请用 Dijkstra
 //spfa求最短路
 int spfa()
 {
@@ -890,6 +930,10 @@ int x, y, z;
 vector<pair<int, int> >g[N];
 int dist[N];
 bool st[N];
+// 【速查】朴素 Dijkstra（稠密图）
+// 用法: g[x].push_back({y, w}); dij()
+// 返回: 1 到 n 的最短路，到不了返回 -1；边权必须非负
+// 复杂度: O(n² + m)，n ≤ 几千、m 接近 n² 时用
 //普通版dijkstra求单源最短路
 int dij()
 {
@@ -953,6 +997,10 @@ vector<pair<int, int>>g[N];
 int dist[N];
 bool st[N];
 
+// 【速查】堆优化 Dijkstra（稀疏图）
+// 用法: g[x].push_back({w, y});   // 注意这里是 {边权, 终点}，和其他最短路模板相反！
+// 返回: 1 到 n 的最短路，到不了返回 -1；dist[] 是到所有点的距离；边权必须非负
+// 复杂度: O(m log m)
 //堆优化版dij,适用于稀疏图 O(m log m); 稠密图请用朴素 O(n^2) 版
 int dij()
 {
@@ -1007,6 +1055,11 @@ signed main() {
 int n, m, k, x, y, z;
 const int N = 205;
 int d[N][N];
+// 【速查】Floyd 全源最短路
+// 用法: d 先 memset 0x3f、d[i][i]=0，读边 d[x][y]=min(d[x][y], w)；floyd() 后 d[i][j] 即最短路
+// 判不可达: d[x][y] > 0x3f3f3f3f3f3f3f3fLL / 2（long long 下 memset 0x3f 的值）
+// 可有负边，不能有负环
+// 复杂度: O(n³)，n ≤ 500 左右
 //floyd求多源最短路
 void floyd()
 {
@@ -1038,7 +1091,7 @@ signed main() {
     for (int i = 1; i <= k; i++)
     {
         cin >> x >> y;
-        if (d[x][y] > 0x3f3f3f3f/2) cout << "impossible" << endl;
+        if (d[x][y] > 0x3f3f3f3f3f3f3f3fLL / 2) cout << "impossible" << endl;   // 10.22 修复: 原版 0x3f3f3f3f/2，距离 > 5e8 被误判
         else
             cout << d[x][y] << endl;
     }
@@ -1056,6 +1109,10 @@ signed main() {
 const int N=2e5+10;
 int t,n,m,res,cnt;
 int fa[N];
+// 【速查】Kruskal 最小生成树
+// 用法: 读 e[1..m] = {a, b, w}，sort 后用并查集从小到大加边
+// 结果: res = MST 权值和；cnt < n-1 说明图不连通（输出 impossible）
+// 复杂度: O(m log m)，稀疏图首选
 //Kruskal算法求最小生成树
 struct edge
 {
@@ -1122,11 +1179,15 @@ signed main()
 #define endl '\n'
 
 const int N=510;
-const int INF=0x3f3f3f3f;
+const int INF=0x3f3f3f3f3f3f3f3fLL;   // 与 memset 0x3f 在 long long 下的值一致
 int n,m;
 int g[N][N];
 int dist[N];
 bool st[N];
+// 【速查】朴素 Prim 最小生成树（稠密图）
+// 用法: g 先 memset 0x3f，g[a][b] = g[b][a] = min(g[a][b], w)；prim()
+// 返回: MST 权值和；图不连通返回 INF
+// 复杂度: O(n²)，n ≤ 几千的稠密图
 //Prim算法求最小生成树
 int prim()
 {
@@ -1143,7 +1204,7 @@ int prim()
         t=j;
       }
     }
-    if(dist[t]==0x3f3f3f3f) 
+    if(dist[t]>=INF)   // 10.22 修复: 原版和 0x3f3f3f3f 比较，long long 下永远不等，不连通时输出乱码
     {
       return INF;
     }
@@ -1192,6 +1253,10 @@ signed main()
 #define int long long
 #define endl "\n"
 
+// 【速查】Boruvka 完全图最小生成树
+// 用途: n 个点两两有边、边权由公式给出（本例 w(i,j) = (a_i + a_j) mod k），边太多不能全建
+// 用法: 每轮给每个连通块找"连到别的块的最小边"（multiset 里二分），全部合并；改 mine 更新处的边权公式即可套题
+// 复杂度: O(n log² n)（log n 轮，每轮 n 次 set 查询）
 //Boruvka 求解边权为某个数学条件下的完全图的最小生成树
 //使用类似启发式的思想，每轮寻找每个并查集对于其他并查集的最小出边
 //每轮并查集数量/=2，最多log轮，在每轮中需要遍历每一个点以及二分寻找找到在其他集合中的点对这个点的最小边
@@ -1333,6 +1398,11 @@ vector<int> state;      //右部已被左部匹配的状态
 vector<int> vis(MAXN);   //右部的vis数组，用来判环
 vector<vector<int>> vec; //从左部向右部建的有向边图
 int visnum=1;           //标记法记vis，节省时间
+// 【速查】匈牙利算法（二分图最大匹配）
+// 用法: 左部 1..n1，右部 1..n2；vec[u].push_back(v) 只建左→右；每个左点 visnum++ 后调 check(i)，成功 ans++
+// 结果: ans = 最大匹配数；state[v] = 与右点 v 匹配的左点
+// 常用: 最小点覆盖 = 最大匹配；最大独立集 = 点数 - 最大匹配；DAG 最小路径覆盖 = n - 最大匹配
+// 复杂度: O(n·m)；规模大（1e5 级）改用 Dinic
 int check(int ind){
     for(int i:vec[ind]){
         if(vis[i]<visnum){
@@ -1411,7 +1481,7 @@ signed main(){
 
 ### 带权二分图最优匹配（KM算法）
 
-> 注意：左右部规模必须相等（内部上界混用 cnta/cntb）。
+> 【10.22 修复】DFS 版（最坏 O(n⁴)，n=500 构造数据 10s）改为 BFS 版 O(n³)。注意：左右部规模必须相等；w=-inf 表示无边，返回值 < -5e14 表示无完美匹配。
 
 ```cpp
 #define int long long
@@ -1422,58 +1492,58 @@ const int MAXN=505;
 int cnta,cntb;  //左部数量，右部数量
 int w[MAXN][MAXN];//边权，从左到右
 
+// 【速查】KM 算法（二分图最大权完美匹配，BFS 版）
+// 用法: cnta = cntb = n；w[i][j] = 左 i 连右 j 的权（无边填 -inf）；ans = KM()
+// 返回: 最大权和；match[j] = 与右点 j 匹配的左点；返回值 < -5e14 表示不存在完美匹配
+// 最小权: 权取负，答案取 -KM()
+// 复杂度: O(n³)，n ≤ 500 没问题
 //以下套用板子不用更改
-int visa[MAXN],visb[MAXN];//访问标记
+// BFS 版 KM，O(n^3)。10.22 修复: 原版是 DFS 版，每次调整顶标后从头重新 DFS，
+//   最坏 O(n^4)：n=500、w[i][j]=i*j 实测 10s（P6577 这类卡 DFS-KM 的数据必 TLE）。
+// 约定: 1-based；左右部规模相等(cnta==cntb)；求最大权完美匹配。
+//   w[x][y] == -inf 表示无边，内部按极小权 NEG 处理；
+//   返回值 < NEG/2 说明不存在完美匹配（被迫用了"无边"）。
+// 原理: 维护顶标 la[x]+lb[y] >= w[x][y]，只走相等边。每轮从一个左部点出发，
+//   像 Dijkstra 一样用 slack 记录未访问右部点的最小差值，每步把整棵交错树的顶标
+//   平移 d（树内相等边不变，树外 slack 减 d），O(n) 步找到增广路，总 O(n^3)。
 int la[MAXN],lb[MAXN];//顶标
-int match[MAXN],upd[MAXN];//匹配点、更新
-int visnum=0;
-bool check(int x) {//匈牙利
-    visa[x]=visnum;
-    for(int y=1; y<=cnta; y++){
-        if(w[x][y]!=-inf){
-            if(visb[y]<visnum)
-            if(la[x]+lb[y]==w[x][y]) {
-                visb[y]=visnum;
-                if(!match[y]||check(match[y])) {
-                    match[y]=x;
-                    return true;
-                }
-            } else upd[y]=min(upd[y],la[x]+lb[y]-w[x][y]);
-        }
-    }
-
-    return false;
-}
+int match[MAXN];//match[y]: 与右部点 y 匹配的左部点（0 表示未匹配）
+int slk[MAXN],pre[MAXN];//slack 与交错树上的前驱右部点
+bool visb[MAXN];
 
 int KM() {//KM板子
-    memset(match,0,sizeof(match));
-    for(int i=1; i<=cnta; i++) {
-        la[i]=-inf;
-        lb[i]=0;
-        for(int j=1; j<=cntb; j++){
-            la[i]=max(la[i],w[i][j]);
-        }
+    const int NEG=-(int)1e15, BIG=(int)4e18;
+    int n=cnta;
+    auto W=[&](int x,int y){ return w[x][y]==-inf ? NEG : w[x][y]; };
+    for(int i=1; i<=n; i++){
+        la[i]=NEG;
+        for(int j=1; j<=n; j++) la[i]=max(la[i],W(i,j));
     }
-    for(int i=1; i<=cnta; i++){
-        while(true) {
-            visnum++;
-            for(int j=1; j<=cntb; j++){
-                upd[j]=inf;
+    for(int j=0; j<=n; j++){ lb[j]=0; match[j]=0; }
+    for(int s=1; s<=n; s++){
+        for(int j=0; j<=n; j++){ visb[j]=false; slk[j]=BIG; pre[j]=0; }
+        int y=0;
+        match[0]=s;                      // 右部虚点 0 挂在起点 s 上
+        do{
+            visb[y]=true;
+            int x=match[y], ny=0, d=BIG;
+            for(int j=1; j<=n; j++){
+                if(visb[j]) continue;
+                int t=la[x]+lb[j]-W(x,j);
+                if(t<slk[j]){ slk[j]=t; pre[j]=y; }
+                if(slk[j]<d){ d=slk[j]; ny=j; }
             }
-            if(check(i))break;
-            int delta=inf;
-            for(int j=1; j<=cntb; j++){
-                if(visb[j]<visnum)delta=min(delta,upd[j]);
+            for(int j=0; j<=n; j++){
+                if(visb[j]){ la[match[j]]-=d; lb[j]+=d; }
+                else slk[j]-=d;
             }
-            for(int j=1; j<=cntb; j++) {
-                if(visa[j]==visnum)la[j]-=delta;
-                if(visb[j]==visnum)lb[j]+=delta;
-            }
-        }
+            y=ny;
+        }while(match[y]);                // 走到未匹配的右部点即找到增广路
+        while(y){ match[y]=match[pre[y]]; y=pre[y]; }   // 沿前驱翻转
     }
     int ans=0;
-    for(int i=1; i<=cntb; i++){
-        ans+=w[match[i]][i];
+    for(int i=1; i<=n; i++){
+        ans+=W(match[i],i);
     }
     return ans;
 }
@@ -1497,7 +1567,7 @@ void solve(){
     cout<<det<<"\n";
 }
 
-main()
+signed main()
 {
     ios::sync_with_stdio(false);
     cin.tie(0);
@@ -1522,6 +1592,10 @@ const int N=1e5+10;
 int t,n,m;
 vector<int> arr[N];
 int color[N];// 1 / 2
+// 【速查】染色法判二分图
+// 用法: 建双向边；对每个未染色的点 dfs(i, 1)，有一次返回 false 就不是二分图
+// 结果: color[i] 为 1/2，即两侧的划分
+// 复杂度: O(n + m)；递归，深链注意爆栈
 //染色法判定二分图
 bool dfs(int u,int c)
 {
@@ -1587,6 +1661,11 @@ signed main()
 > 含桥判定与分量划分；按边编号跳过父边，正确处理重边。
 
 ```cpp
+// 【速查】边双连通分量 + 桥（无向图）
+// 用途: 求桥；把边双缩成点后得到一棵树（"桥树"）
+// 用法: EdgeBCC e(n); e.addEdge(u, v)（返回边编号 0..m-1）; e.build();
+// 结果: e.isBridge[id]、e.belong[u]（所属边双 0..bccCnt-1）、e.components[c]（点集）
+// 复杂度: O(n + m)；支持重边和自环；点 1-based
 /*
  * Edge Biconnected Components (EBCC)
  *
@@ -1789,6 +1868,11 @@ int main() {
 > 含割点判定与边栈实现；约定：桥形成 {u,v} 点双，孤立点自成一点双。
 
 ```cpp
+// 【速查】点双连通分量 + 割点（无向图）
+// 用途: 求割点；点双缩点 / 建圆方树
+// 用法: VertexBCC v(n); v.addEdge(a, b); v.build();
+// 结果: v.isCut[u]、v.bcc[i]（点集，割点会出现在多个点双里）、v.bccEdges[i]（边编号）
+// 复杂度: O(n + m)；孤立点单独成一个点双；点 1-based
 /*
  * Vertex Biconnected Components (VBCC)
  *
@@ -2026,6 +2110,9 @@ int main() {
 using ll = long long;
 const ll INF = 4e18;
 
+// 【速查】Dinic 最大流（单路增广 + 当前弧优化）
+// 用法: Dinic mf(点数); mf.addEdge(u, v, cap);  ll f = mf.maxflow(s, t);   // 点编号 0..点数-1，1-based 就开 n+1
+// 复杂度: 一般 O(n²m)，实际很快；二分图上 O(m√n)
 struct Dinic {
     struct Edge {
         int to, rev;
@@ -2145,6 +2232,9 @@ const ll INF = 4e18;
 4. 总流量必须能用 long long 表示。
 */
 
+// 【速查】Dinic 最大流（多路增广版，常数更小）
+// 用法: Dinic mf(点数); mf.addEdge(u, v, cap);  ll f = mf.maxFlow(s, t);   // 注意是 maxFlow（大写 F）
+// 复杂度: 同 Dinic；卡常时用这个
 // Dinic批量增广最大流
 struct Dinic {
     using ll = long long;
@@ -2252,6 +2342,10 @@ struct Dinic {
 ```cpp
 using ll = long long;
 const ll INF = 4e18;
+// 【速查】最小割（Dinic + 找割集）
+// 用法: Dinic mf(点数); mf.addEdge(u, v, cap); ll cut = mf.maxflow(s, t);  auto side = mf.mincut(s);
+// 结果: 最小割 = 最大流；side[u] = 1 表示 u 在 S 侧；割边 = 从 S 侧指向 T 侧的原边
+// 复杂度: 最大流 + O(n + m)
 struct Dinic {
     struct Edge {
         int to, rev;
@@ -2400,6 +2494,9 @@ void solve() {
 ```cpp
 using ll = long long;
 const ll INF = 4e18;
+// 【速查】EK 最大流（BFS 找增广路）
+// 用法: EdmondsKarp mf(点数); mf.addEdge(u, v, cap); ll f = mf.maxflow(s, t);
+// 复杂度: O(n·m²)，好写但慢，比赛优先用 Dinic
 struct EdmondsKarp {
     struct Edge {
         int to, rev;
@@ -2483,6 +2580,11 @@ struct EdmondsKarp {
 ```cpp
 using ll = long long;
 const ll INF = 4e18;
+// 【速查】最小费用最大流（SPFA 版 SSP）
+// 用法: MinCostMaxFlow mf(点数); mf.addEdge(u, v, cap, cost); auto [flow, cost] = mf.minCostMaxFlow(s, t);
+// 返回: {最大流, 在此流量下的最小费用}；最大费用就把 cost 取负、答案取负
+// 前提: 可以有负费用边，但不能有负费用环（否则死循环）
+// 复杂度: O(流量 × SPFA)，一般够用
 struct MinCostMaxFlow {
     struct Edge {
         int to, rev;
@@ -2646,6 +2748,10 @@ SPFA 求最短距离；
 5. 本模板不检测负费用环，不适合直接处理含负费用环的网络。
 6. 距离、总流量、总费用及中间乘加结果均需在 long long 安全范围内。
 7. DFS 使用递归，路径特别深时需要注意栈空间。
+// 【速查】最小费用最大流（SPFA + 最短路图上 Dinic 多路增广）
+// 用法: MinCostMaxFlowBatch mf(点数); mf.addEdge(u, v, cap, cost); auto [flow, cost] = mf.minCostMaxFlow(s, t);
+// 适用: 同费用的增广路很多时（如费用种类少）比普通版快；前提同样是无负费用环
+// 复杂度: 每轮 SPFA + Dinic，轮数 ≤ 不同最短路长度个数
 */
 struct MinCostMaxFlowBatch {
     using ll = long long;
@@ -2798,6 +2904,11 @@ struct MinCostMaxFlowBatch {
 ```cpp
 using ll = long long;
 const ll INF = 4e18;
+// 【速查】最小费用流（Dijkstra + 势能，可限制流量 k）
+// 用法: MinCostMaxFlow mf(点数); mf.addEdge(u, v, cap, cost); auto [flow, cost] = mf.minCostFlow(s, t, k);
+// 返回: 最多流 k 单位时的 {流量, 最小费用}；k 传 INF 就是最小费用最大流；flow < k 说明流不到 k
+// 前提: 允许负费用边（先 SPFA 一次求初始势能），不能有负费用环
+// 复杂度: O(流量 × m log n)，比 SPFA 版稳
 // 用dij()代替spfa
 struct MinCostMaxFlow {
     struct Edge {
@@ -2963,6 +3074,10 @@ const ll INF = 4e18;
 struct Edge { int to, rev; ll cap, cost; };
 int n;                      // 节点数(编号 0..n-1)
 vector<vector<Edge>> g;     // 加边时成对存放(正向 cap/反向 0, 反向 cost 取负)
+// 【速查】限额 k 的最小费用流（全局图裸函数，SPFA 版）
+// 用法: 设 n、g.assign(n, {})，用注释里的 addEdge 加边；auto [flow, cost] = minCostFlow(s, t, k);
+// 返回: {实际流量, 最小费用}；flow < k 说明达不到 k
+// 复杂度: O(k × SPFA)；无负费用环
 // 加边辅助:
 // void addEdge(int u, int v, ll cap, ll cost) {
 //     g[u].push_back({v, (int)g[v].size(), cap, cost});
@@ -3047,6 +3162,7 @@ pair<ll, ll> minCostFlow(int s, int t, ll k) {
 ### 带费用上下界最小费用可行循环流
 
 > addEdge(u,v,lower,upper,cost)；solve() 返回{是否可行,最小费用}，getFlow 查每边最终流量。
+> 【10.22 修复】支持负费用与负费用环（负费用边先流满再退流）；原版遇负费用环 SPFA 死循环。
 
 ```cpp
 using ll = long long;
@@ -3162,19 +3278,33 @@ struct MinCostMaxFlow {
 /*==================================================
           带费用上下界最小费用可行循环流
 
-    addEdge(u, v, lower, upper, cost)
+    addEdge(u, v, lower, upper, cost)   要求 0 <= lower <= upper，cost 可正可负
 
     solve():
-        返回 {是否存在可行流, 最小费用}
+        返回 {是否存在可行流, 最小费用}；每个对象只调用一次
+
+    负费用（含负费用环）的处理（10.22 修复）:
+        原版把负费用边原样放进残量网络，遇到负费用环时 SPFA 死循环，
+        且 SSP 只沿 SS->TT 增广，找不到"环流本身"带来的收益。
+        现在负费用边先强制流满 upper（费用、盈亏立即结算），残量网络只放一条
+        反向"退流"边 v->u（容量 upper-lower，费用 -cost > 0）。
+        这样初始残量网络费用全部非负、没有负环，SSP 求出的就是全局最小费用循环流。
 ==================================================*/
 
+// 【速查】上下界最小费用可行循环流
+// 用途: 每条边流量必须在 [lower, upper] 内、每个点流入=流出，求最小总费用（无源汇的循环流）
+// 用法: LowerBoundMinCostFlow L(n);  int id = L.addEdge(u, v, lower, upper, cost);  auto [ok, cost] = L.solve();
+//       L.getFlow(id) -> 该边最终流量；点编号 0..n-1；solve() 只能调一次
+// 有源汇: 加一条 t->s、[0, INF]、费用 0 的边，就转成循环流
+// 复杂度: 一次最小费用流；支持负费用和负费用环
 struct LowerBoundMinCostFlow {
 
     struct OriginalEdge {
-        int u;
-        int id;
+        int u;      // 残量边的起点：非负费用边为 u，负费用边为 v
+        int id;     // 残量边在 mf.g[u] 中的下标
         ll lower;
         ll upper;
+        bool neg;   // 是否按"先流满再退流"处理
     };
 
     int n;
@@ -3182,10 +3312,8 @@ struct LowerBoundMinCostFlow {
 
     MinCostMaxFlow mf;
 
-    // balance[i] = 固定下界造成的 流入 - 流出
-    vector<ll> balance;
+    vector<ll> balance;   // 节点净流入，>0 时由 SS 补入，<0 时流向 TT
 
-    // 下界部分已经必然产生的费用
     ll baseCost = 0;
 
     vector<OriginalEdge> edges;
@@ -3197,7 +3325,6 @@ struct LowerBoundMinCostFlow {
           mf(n + 2),
           balance(n, 0) {}
 
-    // 返回这条原边的编号
     int addEdge(
         int u,
         int v,
@@ -3205,32 +3332,24 @@ struct LowerBoundMinCostFlow {
         ll upper,
         ll cost
     ) {
-        // 下界部分是必须走的
-        baseCost += lower * cost;
-
-        // 固定 lower 后造成节点流量不平衡
-        balance[u] -= lower;
-        balance[v] += lower;
-
-        // 剩余还能流 upper-lower
-        int id = mf.addEdge(
-            u,
-            v,
-            upper - lower,
-            cost
-        );
-
-        edges.push_back({
-            u,
-            id,
-            lower,
-            upper
-        });
-
+        if (cost >= 0) {
+            // 先流 lower，剩余 upper-lower 按原方向可选
+            baseCost += lower * cost;
+            balance[u] -= lower;
+            balance[v] += lower;
+            int id = mf.addEdge(u, v, upper - lower, cost);
+            edges.push_back({u, id, lower, upper, false});
+        } else {
+            // 先流满 upper，剩余 upper-lower 作为 v->u 的退流边，费用 -cost > 0
+            baseCost += upper * cost;
+            balance[u] -= upper;
+            balance[v] += upper;
+            int id = mf.addEdge(v, u, upper - lower, -cost);
+            edges.push_back({v, id, lower, upper, true});
+        }
         return (int)edges.size() - 1;
     }
 
-    // 返回 {是否可行, 最小费用}
     pair<bool, ll> solve() {
 
         ll need = 0;
@@ -3238,7 +3357,6 @@ struct LowerBoundMinCostFlow {
         for (int i = 0; i < n; i++) {
 
             if (balance[i] > 0) {
-                // 流入过多，需要把流送出去
                 mf.addEdge(
                     SS,
                     i,
@@ -3250,7 +3368,6 @@ struct LowerBoundMinCostFlow {
             }
 
             else if (balance[i] < 0) {
-                // 流出过多，需要补充流入
                 mf.addEdge(
                     i,
                     TT,
@@ -3277,12 +3394,597 @@ struct LowerBoundMinCostFlow {
     ll getFlow(int edgeId) {
         auto &x = edges[edgeId];
 
-        ll remain = mf.g[x.u][x.id].cap;
+        // 残量边上实际走过的流量
+        ll used =
+            (x.upper - x.lower) - mf.g[x.u][x.id].cap;
 
-        ll extra =
-            (x.upper - x.lower) - remain;
+        return x.neg ? x.upper - used : x.lower + used;
+    }
+};
+```
 
-        return x.lower + extra;
+### LCA（倍增）与虚树
+
+> 【10.22 新增】非递归倍增 LCA、k 级祖先；按 DFS 序建虚树。
+
+```cpp
+// 【速查】LCA（倍增，非递归预处理）
+// 用法: LCA t(n);  t.addEdge(u, v);  t.build(root);      // 点 1-based，无向树
+//       t.lca(u, v);  t.dist(u, v)（边数，带权就另开前缀和 sum[u] + sum[v] - 2 sum[lca]）;
+//       t.kth(u, k) -> u 往上第 k 个祖先（不存在返回 0）;  t.dep[u] 深度（根为 0）、t.tin[u] DFS 序
+// 复杂度: 预处理 O(n log n)，每次查询 O(log n)
+struct LCA {
+    int n, LOG;
+    vector<vector<int>> g, up;
+    vector<int> dep, tin;
+
+    LCA(int n) : n(n), g(n + 1), dep(n + 1, 0), tin(n + 1, 0) {
+        LOG = 1;
+        while ((1 << LOG) <= n) LOG++;
+        up.assign(LOG, vector<int>(n + 1, 0));
+    }
+    void addEdge(int u, int v) { g[u].push_back(v); g[v].push_back(u); }
+    void build(int root) {
+        int timer = 0;
+        vector<int> st = {root};
+        vector<char> vis(n + 1, 0);
+        vis[root] = 1; up[0][root] = 0;
+        while (!st.empty()) {                    // 迭代 DFS，深链不会爆栈
+            int u = st.back(); st.pop_back();
+            tin[u] = ++timer;
+            for (int v : g[u]) if (!vis[v]) {
+                vis[v] = 1; dep[v] = dep[u] + 1; up[0][v] = u;
+                st.push_back(v);
+            }
+        }
+        for (int k = 1; k < LOG; k++)
+            for (int v = 1; v <= n; v++) up[k][v] = up[k - 1][up[k - 1][v]];
+    }
+    int kth(int u, int k) {
+        if (k > dep[u]) return 0;
+        for (int i = 0; i < LOG; i++) if (k >> i & 1) u = up[i][u];
+        return u;
+    }
+    int lca(int u, int v) {
+        if (dep[u] < dep[v]) swap(u, v);
+        u = kth(u, dep[u] - dep[v]);
+        if (u == v) return u;
+        for (int k = LOG - 1; k >= 0; k--)
+            if (up[k][u] != up[k][v]) u = up[k][u], v = up[k][v];
+        return up[0][u];
+    }
+    int dist(int u, int v) { return dep[u] + dep[v] - 2 * dep[lca(u, v)]; }
+};
+
+// 【速查】虚树（只保留关键点及其两两 LCA 的压缩树）
+// 用途: 多次询问、每次给 k 个关键点（Σk 不大）做树形 DP（P2495 消耗战、P3320 等）
+// 用法: auto [nodes, par] = buildVirtualTree(t, keys);   // t 为建好的 LCA
+//       nodes: 虚树所有点（按 DFS 序，nodes[0] 是虚树根）; par[i]: nodes[i] 在虚树上的父亲（par[0] = 0）
+//       虚树边 (par[i], nodes[i]) 对应原树上一条祖先链，边权按题意用原树信息算（如 dist、链上最小边）
+// 复杂度: O(k log k + k log n)
+pair<vector<int>, vector<int>> buildVirtualTree(LCA& t, vector<int> keys) {
+    auto byTin = [&](int a, int b) { return t.tin[a] < t.tin[b]; };
+    sort(keys.begin(), keys.end(), byTin);
+    keys.erase(unique(keys.begin(), keys.end()), keys.end());
+    vector<int> nodes = keys;
+    for (int i = 0; i + 1 < (int)keys.size(); i++) nodes.push_back(t.lca(keys[i], keys[i + 1]));
+    sort(nodes.begin(), nodes.end(), byTin);
+    nodes.erase(unique(nodes.begin(), nodes.end()), nodes.end());
+    vector<int> par(nodes.size(), 0);
+    for (int i = 1; i < (int)nodes.size(); i++) par[i] = t.lca(nodes[i - 1], nodes[i]);   // DFS 序相邻两点的 LCA 就是父亲
+    return {nodes, par};
+}
+```
+
+### 2-SAT
+
+> 【10.22 新增】迭代 Tarjan，给出一组可行解。
+
+```cpp
+// 【速查】2-SAT（P4782）
+// 用途: n 个布尔变量，若干条"a 或 b"形式的约束，判断是否有解并给出一组解
+// 用法: TwoSat s(n);                       // 变量 0..n-1
+//       s.addClause(x, a, y, b)            // 约束: (x == a) 或 (y == b)，a、b ∈ {0, 1}
+//       常用翻译:  x 必须为 a      -> addClause(x, a, x, a)
+//                 x、y 不能同时为 1 -> addClause(x, 0, y, 0)
+//                 x 为 1 则 y 为 1  -> addClause(x, 0, y, 1)
+//       bool ok = s.solve();  ok 时 s.ans[x] ∈ {0, 1} 是一组解
+// 复杂度: O(n + m)；Tarjan 用迭代写法，2e6 个点也不会爆栈
+struct TwoSat {
+    int n;
+    vector<vector<int>> g;
+    vector<int> ans;
+
+    TwoSat(int n) : n(n), g(2 * n) {}
+    int id(int x, int v) { return 2 * x + v; }          // 点 2x+v 表示 "x == v"
+    void addClause(int x, int a, int y, int b) {
+        g[id(x, !a)].push_back(id(y, b));             // x != a  =>  y == b
+        g[id(y, !b)].push_back(id(x, a));             // y != b  =>  x == a
+    }
+    bool solve() {
+        int N = 2 * n, timer = 0, cc = 0;
+        vector<int> dfn(N, -1), low(N), comp(N, -1), it(N, 0), st, call;
+        for (int s = 0; s < N; s++) {
+            if (dfn[s] != -1) continue;
+            dfn[s] = low[s] = timer++; st.push_back(s); call.push_back(s);
+            while (!call.empty()) {
+                int u = call.back();
+                if (it[u] < (int)g[u].size()) {
+                    int v = g[u][it[u]++];
+                    if (dfn[v] == -1) { dfn[v] = low[v] = timer++; st.push_back(v); call.push_back(v); }
+                    else if (comp[v] == -1) low[u] = min(low[u], dfn[v]);
+                } else {
+                    call.pop_back();
+                    if (!call.empty()) low[call.back()] = min(low[call.back()], low[u]);
+                    if (low[u] == dfn[u]) {
+                        while (true) { int w = st.back(); st.pop_back(); comp[w] = cc; if (w == u) break; }
+                        cc++;
+                    }
+                }
+            }
+        }
+        ans.assign(n, 0);
+        for (int x = 0; x < n; x++) {
+            if (comp[2 * x] == comp[2 * x + 1]) return false;
+            ans[x] = comp[2 * x + 1] < comp[2 * x];     // Tarjan 编号小 = 拓扑序靠后，选它
+        }
+        return true;
+    }
+};
+```
+
+### 点分治
+
+> 【10.22 新增】树上距离为 k 的点对是否存在（P3806），非递归。
+
+```cpp
+// 【速查】点分治（P3806：询问树上是否存在距离恰好为 k 的点对）
+// 用途: 统计树上路径（距离 = k / ≤ k 的点对数、带限制的路径计数等），每层以重心为根统计"经过重心的路径"
+// 用法: CentroidDecomp cd(n);  cd.addEdge(u, v, w);   // 点 1-based，边权 >= 0
+//       vector<char> res = cd.solve(queries);          // res[i] = 是否存在距离为 queries[i] 的点对
+// 改题: 换掉 calc() 里"用当前子树距离去配之前子树距离"的部分即可（如计数距离 ≤ k 的点对）
+// 复杂度: O(n log n · q)；求重心、算距离都用 BFS，不会爆栈
+struct CentroidDecomp {
+    int n;
+    vector<vector<pair<int, int>>> g;
+    vector<char> removed;
+    vector<int> sz, par;
+
+    CentroidDecomp(int n) : n(n), g(n + 1), removed(n + 1, 0), sz(n + 1), par(n + 1) {}
+    void addEdge(int u, int v, int w) { g[u].push_back({v, w}); g[v].push_back({u, w}); }
+
+    // BFS 收集以 s 为起点（父亲为 p）的连通块，顺序为 BFS 序
+    vector<int> collect(int s, int p) {
+        vector<int> order = {s};
+        par[s] = p;
+        for (size_t i = 0; i < order.size(); i++) {
+            int u = order[i];
+            for (auto [v, w] : g[u]) if (v != par[u] && !removed[v]) { par[v] = u; order.push_back(v); }
+        }
+        return order;
+    }
+    int centroid(int s) {
+        vector<int> order = collect(s, 0);
+        int tot = order.size();
+        for (int i = tot - 1; i >= 0; i--) {
+            int u = order[i]; sz[u] = 1;
+            for (auto [v, w] : g[u]) if (v != par[u] && !removed[v]) sz[u] += sz[v];
+        }
+        for (int u : order) {
+            int mx = tot - sz[u];
+            for (auto [v, w] : g[u]) if (v != par[u] && !removed[v]) mx = max(mx, sz[v]);
+            if (mx * 2 <= tot) return u;
+        }
+        return s;
+    }
+
+    vector<int> qs;
+    vector<char> res;
+    int maxK = 0;
+    vector<char> exist;                    // exist[d] = 之前的子树里有到重心距离为 d 的点
+
+    void calc(int c) {
+        vector<int> used = {0};
+        exist[0] = 1;
+        for (auto [v0, w0] : g[c]) {
+            if (removed[v0]) continue;
+            // 当前子树里所有点到重心的距离
+            vector<int> ds;
+            vector<pair<int, long long>> st = {{v0, w0}};
+            vector<int> from = {c};
+            for (size_t i = 0; i < st.size(); i++) {
+                auto [u, d] = st[i];
+                if (d <= maxK) ds.push_back((int)d);
+                for (auto [v, w] : g[u]) if (v != from[i] && !removed[v]) { st.push_back({v, d + w}); from.push_back(u); }
+            }
+            for (int d : ds)
+                for (size_t i = 0; i < qs.size(); i++)
+                    if (!res[i] && qs[i] >= d && exist[qs[i] - d]) res[i] = 1;
+            for (int d : ds) if (!exist[d]) { exist[d] = 1; used.push_back(d); }
+        }
+        for (int d : used) exist[d] = 0;
+    }
+    vector<char> solve(const vector<int>& queries) {
+        qs = queries;
+        res.assign(qs.size(), 0);
+        maxK = 0;
+        for (int k : qs) maxK = max(maxK, k);
+        exist.assign(maxK + 1, 0);
+        vector<int> todo = {1};
+        while (!todo.empty()) {               // 用栈代替递归分治
+            int s = todo.back(); todo.pop_back();
+            int c = centroid(s);
+            calc(c);
+            removed[c] = 1;
+            for (auto [v, w] : g[c]) if (!removed[v]) todo.push_back(v);
+        }
+        return res;
+    }
+};
+```
+
+### 树上启发式合并（dsu on tree）
+
+> 【10.22 新增】离线统计每个子树的信息（CF600E 子树众数之和）。
+
+```cpp
+// 【速查】树上启发式合并 dsu on tree（CF600E：每个子树里出现次数最多的颜色之和）
+// 用途: 离线回答"每个点的子树里 xxx"（众数、不同颜色数、某深度的点数……），信息只能加不能快速合并时
+// 用法: DsuOnTree t(n);  t.addEdge(u, v);  t.col[i] = 颜色（非负整数，大就先离散化）;  auto ans = t.solve(1);   // ans[u]
+// 改题: 改 addPoint / clearAll 维护的信息，以及 solve 里记录答案的那一行
+// 原理: 先算轻儿子并清空，再算重儿子并保留，最后把轻儿子子树逐点加回来；每个点被加 O(log n) 次
+// 复杂度: O(n log n)；预处理是迭代的，主过程递归深度 = 树高（链状 1e6 可能爆栈）
+struct DsuOnTree {
+    int n;
+    vector<vector<int>> g;
+    vector<int> col, sz, heavy, tin, tout, ver, fa;
+    vector<long long> ans;
+
+    DsuOnTree(int n) : n(n), g(n + 1), col(n + 1), sz(n + 1, 1), heavy(n + 1, 0),
+                       tin(n + 1), tout(n + 1), ver(n + 1), fa(n + 1, 0), ans(n + 1) {}
+    void addEdge(int u, int v) { g[u].push_back(v); g[v].push_back(u); }
+
+    // ---- 需要按题意修改的部分 ----
+    vector<int> cnt;
+    int mx = 0;
+    long long sum = 0;
+    void addPoint(int u) {
+        int c = col[u];
+        cnt[c]++;
+        if (cnt[c] > mx) mx = cnt[c], sum = c;
+        else if (cnt[c] == mx) sum += c;
+    }
+    void clearAll(int u) {                     // 清空 u 子树的贡献
+        for (int i = tin[u]; i <= tout[u]; i++) cnt[col[ver[i]]]--;
+        mx = 0; sum = 0;
+    }
+    // ------------------------------
+
+    void dfs(int u, bool keep) {
+        for (int v : g[u]) if (v != fa[u] && v != heavy[u]) dfs(v, false);
+        if (heavy[u]) dfs(heavy[u], true);
+        for (int v : g[u]) if (v != fa[u] && v != heavy[u])
+            for (int i = tin[v]; i <= tout[v]; i++) addPoint(ver[i]);
+        addPoint(u);
+        ans[u] = sum;                          // 记录答案
+        if (!keep) clearAll(u);
+    }
+    vector<long long> solve(int root) {
+        // 迭代求 fa、DFS 序、子树大小、重儿子
+        vector<int> order, st = {root};
+        fa[root] = 0;
+        vector<int> it(n + 1, 0);
+        int timer = 0;
+        tin[root] = ++timer; ver[timer] = root;
+        while (!st.empty()) {
+            int u = st.back();
+            if (it[u] < (int)g[u].size()) {
+                int v = g[u][it[u]++];
+                if (v == fa[u]) continue;
+                fa[v] = u; tin[v] = ++timer; ver[timer] = v;
+                st.push_back(v);
+            } else {
+                st.pop_back();
+                tout[u] = timer;
+                if (fa[u]) { sz[fa[u]] += sz[u]; if (!heavy[fa[u]] || sz[u] > sz[heavy[fa[u]]]) heavy[fa[u]] = u; }
+            }
+        }
+        cnt.assign(max(n, *max_element(col.begin(), col.end())) + 1, 0);   // 颜色可以超过 n（但需 >= 0）
+        mx = 0; sum = 0;
+        dfs(root, true);
+        return ans;
+    }
+};
+```
+
+### 欧拉路径 / 欧拉回路
+
+> 【10.22 新增】有向（字典序最小）与无向版本，Hierholzer 迭代实现。
+
+```cpp
+// 【速查】欧拉路径 / 欧拉回路（Hierholzer，迭代版）
+// 用途: 一笔画：每条边恰好走一次（P7771 有向字典序最小、P2731 无向）
+// 用法: EulerDirected e(n);  e.addEdge(u, v);  auto path = e.solve();
+//       EulerUndirected e(n); e.addEdge(u, v);  auto path = e.solve();
+//       返回经过的点序列（长度 m+1）；不存在欧拉路径返回空 vector；点 1-based
+// 字典序最小: 有向版已按出边终点排序（从最小可行起点出发，每次走最小的边）
+// 判定: 有向——所有点 出度-入度 ∈ {0}，或恰好一个 +1（起点）一个 -1（终点）；无向——奇度点 0 或 2 个；且边连通
+// 复杂度: O(m log m)（排序），不排序 O(n + m)
+struct EulerDirected {
+    int n, m = 0;
+    vector<vector<int>> g;
+    EulerDirected(int n) : n(n), g(n + 1) {}
+    void addEdge(int u, int v) { g[u].push_back(v); m++; }
+    vector<int> solve() {
+        vector<int> in(n + 1, 0), out(n + 1, 0);
+        for (int u = 1; u <= n; u++) { sort(g[u].begin(), g[u].end()); out[u] = g[u].size(); for (int v : g[u]) in[v]++; }
+        int start = 0, plus = 0, minus = 0;
+        for (int u = 1; u <= n; u++) {
+            int d = out[u] - in[u];
+            if (d == 1) plus++, start = u;
+            else if (d == -1) minus++;
+            else if (d != 0) return {};
+        }
+        if (!(plus == 0 && minus == 0) && !(plus == 1 && minus == 1)) return {};
+        if (!start) for (int u = 1; u <= n; u++) if (out[u]) { start = u; break; }
+        if (!start) return {1};                   // 没有边
+        vector<int> ptr(n + 1, 0), st = {start}, path;
+        while (!st.empty()) {
+            int u = st.back();
+            if (ptr[u] < (int)g[u].size()) st.push_back(g[u][ptr[u]++]);
+            else { path.push_back(u); st.pop_back(); }
+        }
+        if ((int)path.size() != m + 1) return {};   // 边不连通
+        reverse(path.begin(), path.end());
+        return path;
+    }
+};
+
+struct EulerUndirected {
+    int n, m = 0;
+    vector<vector<pair<int, int>>> g;              // (邻点, 边编号)
+    EulerUndirected(int n) : n(n), g(n + 1) {}
+    void addEdge(int u, int v) { g[u].push_back({v, m}); g[v].push_back({u, m}); m++; }
+    vector<int> solve() {
+        int start = 0, odd = 0;
+        for (int u = 1; u <= n; u++) if (g[u].size() % 2) { odd++; if (!start) start = u; }
+        if (odd != 0 && odd != 2) return {};
+        if (!start) for (int u = 1; u <= n; u++) if (!g[u].empty()) { start = u; break; }
+        if (!start) return {1};
+        for (int u = 1; u <= n; u++) sort(g[u].begin(), g[u].end());
+        vector<char> used(m, 0);
+        vector<int> ptr(n + 1, 0), st = {start}, path;
+        while (!st.empty()) {
+            int u = st.back();
+            while (ptr[u] < (int)g[u].size() && used[g[u][ptr[u]].second]) ptr[u]++;
+            if (ptr[u] < (int)g[u].size()) {
+                auto [v, id] = g[u][ptr[u]++];
+                used[id] = 1;
+                st.push_back(v);
+            } else { path.push_back(u); st.pop_back(); }
+        }
+        if ((int)path.size() != m + 1) return {};
+        reverse(path.begin(), path.end());
+        return path;
+    }
+};
+```
+
+### 差分约束
+
+> 【10.22 新增】x_a - x_b <= c 的可行解 / 判无解。
+
+```cpp
+// 【速查】差分约束（P5960）
+// 用途: 一组不等式 x_a - x_b <= c，求一组整数解或判无解
+// 用法: DiffConstraints d(n);  d.add(a, b, c);   // 约束 x_a - x_b <= c，变量 1..n
+//       常用翻译:  x_a - x_b >= c -> add(b, a, -c);   x_a == x_b + c -> add(a, b, c) 且 add(b, a, -c)
+//       auto x = d.solve();   // 无解（有负环）返回空 vector；否则 x[1..n] 是一组解（都 <= 0）
+// 求"最大解/最小解": 以某点为源求最短路得到各变量相对它的最大值；求最小值就把不等式反过来求最长路
+// 复杂度: SPFA 最坏 O(nm)
+struct DiffConstraints {
+    int n;
+    vector<vector<pair<int, long long>>> g;
+    DiffConstraints(int n) : n(n), g(n + 1) {}
+    void add(int a, int b, long long c) { g[b].push_back({a, c}); }   // x_a <= x_b + c：边 b -> a，权 c
+    vector<long long> solve() {
+        vector<long long> dist(n + 1, 0);       // 相当于超级源点 0 向每个点连 0 边
+        vector<int> cnt(n + 1, 0);
+        vector<char> inq(n + 1, 1);
+        deque<int> q;
+        for (int i = 1; i <= n; i++) q.push_back(i);
+        while (!q.empty()) {
+            int u = q.front(); q.pop_front(); inq[u] = 0;
+            for (auto [v, w] : g[u]) {
+                if (dist[u] + w < dist[v]) {
+                    dist[v] = dist[u] + w;
+                    if (!inq[v]) {
+                        if (++cnt[v] > n) return {};   // 入队超过 n 次 => 负环 => 无解
+                        inq[v] = 1; q.push_back(v);
+                    }
+                }
+            }
+        }
+        return dist;
+    }
+};
+```
+
+### Kruskal 重构树
+
+> 【10.22 新增】瓶颈路（最小化最大边 / 最大化最小边）、只走 <= x 的边能到的点集。
+
+```cpp
+// 【速查】Kruskal 重构树（P1967 货车运输、P4197）
+// 用途: "u 到 v 所有路径中，最大边权的最小值"（瓶颈路）= 重构树上 val[lca(u, v)]；
+//       "从 u 出发只走边权 <= x 的边能到哪些点" = u 往上跳到 val <= x 的最高祖先，它的子树叶子就是答案
+// 用法: KruskalTree t(n);  t.addEdge(u, v, w);  t.build();       // 点 1-based，按边权升序合并（最小瓶颈）
+//       t.bottleneck(u, v) -> 最小化的最大边权，不连通返回 -1;
+//       t.highest(u, x) -> u 只走 <= x 的边能到的连通块对应的重构树节点（子树叶子 = 能到的点）
+//       求"最大化最小边"（货车运输）: build(true) 改为按边权降序合并，bottleneck 返回最小边的最大值
+// 复杂度: O(m log m + n log n)；重构树共 2n-1 个点，叶子 1..n，内部点 val = 合并它的那条边
+struct KruskalTree {
+    int n, tot;
+    vector<array<long long, 3>> edges;
+    vector<int> fa, dep;
+    vector<long long> val;
+    vector<vector<int>> up, ch;
+    int LOG;
+
+    KruskalTree(int n) : n(n) {}
+    void addEdge(int u, int v, long long w) { edges.push_back({w, u, v}); }
+    int find(int x) { while (fa[x] != x) x = fa[x] = fa[fa[x]]; return x; }
+
+    void build(bool maxBottleneck = false) {
+        sort(edges.begin(), edges.end());
+        if (maxBottleneck) reverse(edges.begin(), edges.end());
+        int N = 2 * n;
+        fa.resize(N); iota(fa.begin(), fa.end(), 0);
+        val.assign(N, 0); ch.assign(N, {});
+        tot = n;
+        for (auto& [w, u, v] : edges) {
+            int a = find(u), b = find(v);
+            if (a == b) continue;
+            ++tot; val[tot] = w;
+            fa[a] = fa[b] = tot;
+            ch[tot] = {a, b};
+        }
+        LOG = 1; while ((1 << LOG) <= tot) LOG++;
+        up.assign(LOG, vector<int>(tot + 1, 0));
+        dep.assign(tot + 1, 0);
+        for (int r = tot; r >= 1; r--) {       // 父亲编号一定比儿子大，倒序就是"先父后子"
+            for (int c : ch[r]) { up[0][c] = r; dep[c] = dep[r] + 1; }
+        }
+        for (int k = 1; k < LOG; k++)
+            for (int v = 1; v <= tot; v++) up[k][v] = up[k - 1][up[k - 1][v]];
+    }
+    int lca(int u, int v) {
+        if (dep[u] < dep[v]) swap(u, v);
+        for (int k = LOG - 1; k >= 0; k--) if (dep[u] - (1 << k) >= dep[v]) u = up[k][u];
+        if (u == v) return u;
+        for (int k = LOG - 1; k >= 0; k--) if (up[k][u] != up[k][v]) u = up[k][u], v = up[k][v];
+        return up[0][u];
+    }
+    long long bottleneck(int u, int v) {
+        if (u == v) return 0;
+        if (find(u) != find(v)) return -1;
+        return val[lca(u, v)];
+    }
+    int highest(int u, long long x) {           // 仅最小瓶颈（升序建树）时语义成立
+        for (int k = LOG - 1; k >= 0; k--) {
+            int p = up[k][u];
+            if (p && val[p] <= x) u = p;
+        }
+        return u;
+    }
+};
+```
+
+### 最小树形图（朱刘）与一般图最大匹配（带花树）
+
+> 【10.22 新增】有向图最小生成树形图；非二分图最大匹配。
+
+```cpp
+// 【速查】最小树形图（朱刘算法，P4716）
+// 用途: 有向图里以 root 为根、能到达所有点的边权和最小的"有向生成树"
+// 用法: long long w = zhuLiu(n, root, edges);   // 点 0..n-1，edges 为 {u, v, w}（u -> v）
+//       返回最小权和；有点到不了返回 -1
+// 复杂度: O(n·m)
+long long zhuLiu(int n, int root, vector<array<long long, 3>> edges) {
+    const long long INF = LLONG_MAX / 4;
+    long long res = 0;
+    vector<long long> in(n);
+    vector<int> pre(n), id(n), vis(n);
+    while (true) {
+        fill(in.begin(), in.end(), INF);
+        for (auto& [u, v, w] : edges)               // 每个点选一条最小入边
+            if (u != v && w < in[v]) in[v] = w, pre[v] = (int)u;
+        for (int i = 0; i < n; i++) if (i != root && in[i] == INF) return -1;
+        int cnt = 0;
+        fill(id.begin(), id.end(), -1); fill(vis.begin(), vis.end(), -1);
+        in[root] = 0;
+        for (int i = 0; i < n; i++) {               // 找环
+            res += in[i];
+            int v = i;
+            while (vis[v] != i && id[v] == -1 && v != root) vis[v] = i, v = pre[v];
+            if (v != root && id[v] == -1) {
+                for (int u = pre[v]; u != v; u = pre[u]) id[u] = cnt;
+                id[v] = cnt++;
+            }
+        }
+        if (cnt == 0) break;                        // 无环，完成
+        for (int i = 0; i < n; i++) if (id[i] == -1) id[i] = cnt++;
+        for (auto& [u, v, w] : edges) {             // 缩环，入环边权减去环内入边
+            long long vv = v;
+            u = id[u]; v = id[v];
+            if (u != v) w -= in[vv];
+        }
+        n = cnt; root = id[root];
+    }
+    return res;
+}
+
+// 【速查】一般图最大匹配（带花树，UOJ79）
+// 用途: 不是二分图的最大匹配（有奇环）
+// 用法: Blossom b(n);  b.addEdge(u, v);  int cnt = b.solve();   // 点 1-based
+//       b.match[u] = u 的匹配点（0 表示未匹配）
+// 复杂度: O(n³)，n ≤ 1000 没问题
+struct Blossom {
+    int n;
+    vector<vector<int>> g;
+    vector<int> match, pre, fa, typ, vis;
+    int stamp = 0;
+
+    Blossom(int n) : n(n), g(n + 1), match(n + 1), pre(n + 1), fa(n + 1), typ(n + 1), vis(n + 1) {}
+    void addEdge(int u, int v) { g[u].push_back(v); g[v].push_back(u); }
+    int find(int x) { while (fa[x] != x) x = fa[x] = fa[fa[x]]; return x; }
+    int lca(int x, int y) {
+        ++stamp;
+        while (true) {
+            if (x) {
+                x = find(x);
+                if (vis[x] == stamp) return x;
+                vis[x] = stamp;
+                x = match[x] ? pre[match[x]] : 0;
+            }
+            swap(x, y);
+        }
+    }
+    void blossom(int x, int y, int l, queue<int>& q) {   // 把奇环缩成花
+        while (find(x) != l) {
+            pre[x] = y; y = match[x];
+            if (typ[y] == 2) typ[y] = 1, q.push(y);
+            if (find(x) == x) fa[x] = l;
+            if (find(y) == y) fa[y] = l;
+            x = pre[y];
+        }
+    }
+    bool bfs(int s) {
+        for (int i = 1; i <= n; i++) fa[i] = i, typ[i] = 0, pre[i] = 0;
+        queue<int> q; q.push(s); typ[s] = 1;
+        while (!q.empty()) {
+            int u = q.front(); q.pop();
+            for (int v : g[u]) {
+                if (find(u) == find(v) || typ[v] == 2) continue;
+                if (!typ[v]) {
+                    typ[v] = 2; pre[v] = u;
+                    if (!match[v]) {                        // 找到增广路，沿 pre 翻转
+                        for (int x = v, last; x; x = last) last = match[pre[x]], match[x] = pre[x], match[pre[x]] = x;
+                        return true;
+                    }
+                    typ[match[v]] = 1; q.push(match[v]);
+                } else {                                     // 两个偶点相遇：奇环
+                    int l = lca(u, v);
+                    blossom(u, v, l, q); blossom(v, u, l, q);
+                }
+            }
+        }
+        return false;
+    }
+    int solve() {
+        int res = 0;
+        for (int i = 1; i <= n; i++) if (!match[i] && bfs(i)) res++;
+        return res;
     }
 };
 ```
