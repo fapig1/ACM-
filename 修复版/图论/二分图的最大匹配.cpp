@@ -4,48 +4,54 @@
 using namespace std;
 
 const int MAXN=505;     //右部大小
-vector<int> state;      //右部已被左部匹配的状态
-vector<int> vis(MAXN);   //右部的vis数组，用来判环
-vector<vector<int>> vec; //从左部向右部建的有向边图
-int visnum=1;           //标记法记vis，节省时间
 // 【速查】匈牙利算法（二分图最大匹配）
-// 用法: 左部 1..n1，右部 1..n2；vec[u].push_back(v) 只建左→右；每个左点 visnum++ 后调 check(i)，成功 ans++
-// 结果: ans = 最大匹配数；state[v] = 与右点 v 匹配的左点
+// 用法: Hungarian H;（放全局）  左部 1..n1，右部 1..n2；H.vec.assign(n1+1, {}); H.state.assign(n2+1, 0); H.vis.assign(n2+1, 0);
+//       H.vec[u].push_back(v) 只建左→右；每个左点 H.visnum++ 后调 H.check(i)，成功 ans++
+// 结果: ans = 最大匹配数；H.state[v] = 与右点 v 匹配的左点
 // 常用: 最小点覆盖 = 最大匹配；最大独立集 = 点数 - 最大匹配；DAG 最小路径覆盖 = n - 最大匹配
 // 复杂度: O(n·m)；规模大（1e5 级）改用 Dinic
-int check(int ind){
-    for(int i:vec[ind]){
-        if(vis[i]<visnum){
-            vis[i]=visnum;
-            if(state[i]==0||check(state[i])){
-                state[i]=ind;
-                return 1;
+// 10.22: 仅把原来的全局变量 / 函数放进结构体，算法代码未改
+struct Hungarian{
+    vector<int> state;      //右部已被左部匹配的状态
+    vector<int> vis=vector<int>(MAXN);   //右部的vis数组，用来判环
+    vector<vector<int>> vec; //从左部向右部建的有向边图
+    int visnum=1;           //标记法记vis，节省时间
+    int check(int ind){
+        for(int i:vec[ind]){
+            if(vis[i]<visnum){
+                vis[i]=visnum;
+                if(state[i]==0||check(state[i])){
+                    state[i]=ind;
+                    return 1;
+                }
             }
         }
+        return 0;
     }
-    return 0;
-}
+};
+
+Hungarian H;
 
 void solve()
 {
     int n1,n2,m;
     //此时左部和右部已经被区分过，如果没有被区分过先进行染色dfs操作
     cin>>n1>>n2>>m;
-    vec.assign(n1+1,vector<int>());
-    state.assign(n2+1,0);
-    vis.assign(n2+1,0);   // 右部大小不再受 MAXN 限制
+    H.vec.assign(n1+1,vector<int>());
+    H.state.assign(n2+1,0);
+    H.vis.assign(n2+1,0);   // 右部大小不再受 MAXN 限制
     for(int i=1;i<=m;i++)
     {
         int u,v;
         cin>>u>>v;
         //因为只从一边找另一边,所以只用存一个方向，即只建左部指向右部的边
-        vec[u].push_back(v);
+        H.vec[u].push_back(v);
     }
 
     int ans=0;
     for(int i=1;i<=n1;i++){
-        visnum++;
-        if(check(i))ans++;
+        H.visnum++;
+        if(H.check(i))ans++;
     }
     cout<<ans<<"\n";
 }

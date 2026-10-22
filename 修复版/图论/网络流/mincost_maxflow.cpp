@@ -7,6 +7,7 @@ const ll INF = 4e18;
 // 返回: {最大流, 在此流量下的最小费用}；最大费用就把 cost 取负、答案取负
 // 前提: 可以有负费用边，但不能有负费用环（否则死循环）
 // 复杂度: O(流量 × SPFA)，一般够用
+//最小费用最大流
 struct MinCostMaxFlow {
     struct Edge {
         int to, rev;

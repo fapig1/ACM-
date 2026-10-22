@@ -5,56 +5,63 @@ using namespace std;
 
 const int N = 1e5 + 5;
 const int mod = 80112002;
-int n, m, s;
-int x, y, z;
-vector<pair<int, int>>g[N];
-int dist[N];
-bool st[N];
 
 // 【速查】堆优化 Dijkstra（稀疏图）
-// 用法: g[x].push_back({w, y});   // 注意这里是 {边权, 终点}，和其他最短路模板相反！
-// 返回: 1 到 n 的最短路，到不了返回 -1；dist[] 是到所有点的距离；边权必须非负
+// 用法: HeapDijkstra D;（放全局）  D.n = n;  D.g[x].push_back({w, y});   // 注意这里是 {边权, 终点}，和其他最短路模板相反！
+//       D.dij()
+// 返回: 1 到 n 的最短路，到不了返回 -1；D.dist[] 是到所有点的距离；边权必须非负
 // 复杂度: O(m log m)
-//堆优化版dij,适用于稀疏图 O(m log m); 稠密图请用朴素 O(n^2) 版
-int dij()
-{
-    memset(dist, 0x3f, sizeof dist);
-    dist[1] = 0;
-    priority_queue<pair<int, int>, vector<pair<int, int>>, greater<pair<int, int>> > q;
-    q.push({ 0,1 });
+// 10.22: 仅把原来的全局变量 / 函数放进结构体，算法代码未改
+struct HeapDijkstra{
+    int n, m, s;
+    vector<pair<int, int>>g[N];
+    int dist[N];
+    bool st[N];
 
-    while (!q.empty())
+    //堆优化版dij,适用于稀疏图 O(m log m); 稠密图请用朴素 O(n^2) 版
+    int dij()
     {
-        auto t = q.top();
-        q.pop();
-        int dis = t.first, idx = t.second;
-        if (st[idx]) continue;
-        st[idx] = true;
-        for (int i = 0; i < g[idx].size(); i++)
-        {
-            dist[g[idx][i].second] = min(dis + g[idx][i].first, dist[g[idx][i].second]);
-            q.push({ dist[g[idx][i].second] ,g[idx][i].second });
-        }
-    }
+        memset(dist, 0x3f, sizeof dist);
+        dist[1] = 0;
+        priority_queue<pair<int, int>, vector<pair<int, int>>, greater<pair<int, int>> > q;
+        q.push({ 0,1 });
 
-    if (dist[n] == 0x3f3f3f3f3f3f3f3f) return -1;
-    else
-        return dist[n];
-}
+        while (!q.empty())
+        {
+            auto t = q.top();
+            q.pop();
+            int dis = t.first, idx = t.second;
+            if (st[idx]) continue;
+            st[idx] = true;
+            for (int i = 0; i < g[idx].size(); i++)
+            {
+                dist[g[idx][i].second] = min(dis + g[idx][i].first, dist[g[idx][i].second]);
+                q.push({ dist[g[idx][i].second] ,g[idx][i].second });
+            }
+        }
+
+        if (dist[n] == 0x3f3f3f3f3f3f3f3f) return -1;
+        else
+            return dist[n];
+    }
+};
+
+HeapDijkstra D;
 
 signed main() {
     ios::sync_with_stdio(false);
     cin.tie(0);
     cout.tie(0);
 
-    cin >> n >> m;
-    for (int i = 1; i <= m; i++)
+    int x, y, z;
+    cin >> D.n >> D.m;
+    for (int i = 1; i <= D.m; i++)
     {
         cin >> x >> y >> z;
-        g[x].push_back({ z,y });
+        D.g[x].push_back({ z,y });
     }
 
-    cout << dij();
+    cout << D.dij();
 
 
     return 0;

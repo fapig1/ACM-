@@ -4,51 +4,56 @@
 using namespace std;
 
 const int N=1e5+10;
-int t,n,m;
-vector<int> arr[N];
-int color[N];// 1 / 2
 // 【速查】染色法判二分图
-// 用法: 建双向边；对每个未染色的点 dfs(i, 1)，有一次返回 false 就不是二分图
-// 结果: color[i] 为 1/2，即两侧的划分
+// 用法: Bipartite B;（放全局）  B.arr[u] 建双向边；对每个未染色的点 B.dfs(i, 1)，有一次返回 false 就不是二分图
+// 结果: B.color[i] 为 1/2，即两侧的划分
 // 复杂度: O(n + m)；递归，深链注意爆栈
-//染色法判定二分图
-bool dfs(int u,int c)
-{
-  color[u]=c;
-  for(auto x:arr[u])
+// 10.22: 仅把原来的全局变量 / 函数放进结构体，算法代码未改
+struct Bipartite{
+  int n,m;
+  vector<int> arr[N];
+  int color[N];// 1 / 2
+  //染色法判定二分图
+  bool dfs(int u,int c)
   {
-    if(!color[x])
+    color[u]=c;
+    for(auto x:arr[u])
     {
-      if(!dfs(x,3-c)) return 0;
+      if(!color[x])
+      {
+        if(!dfs(x,3-c)) return 0;
+      }
+      else if(color[x]&&color[x]!=3-c)
+      {
+        return 0;
+      }
     }
-    else if(color[x]&&color[x]!=3-c)
-    {
-      return 0;
-    }
+    return 1;
   }
-  return 1;
-}
+};
+
+Bipartite B;
 
 signed main()
 {
     ios::sync_with_stdio(false);
     cin.tie(0);
     cout.tie(0);
-    
-    cin>>n>>m;
-    for(int i=1;i<=m;i++)
+
+    cin>>B.n>>B.m;
+    for(int i=1;i<=B.m;i++)
     {
       int u,v;
       cin>>u>>v;
-      arr[u].push_back(v);
-      arr[v].push_back(u);
+      B.arr[u].push_back(v);
+      B.arr[v].push_back(u);
     }
     int flag=0;
-    for(int i=1;i<=n;i++)
+    for(int i=1;i<=B.n;i++)
     {
-      if(!color[i])
+      if(!B.color[i])
       {
-        if(!dfs(i,1))
+        if(!B.dfs(i,1))
         {
           flag=1;
           break;

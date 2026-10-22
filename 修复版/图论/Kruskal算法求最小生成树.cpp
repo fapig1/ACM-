@@ -4,12 +4,11 @@
 using namespace std;
 
 const int N=2e5+10;
-int t,n,m,res,cnt;
-int fa[N];
 // 【速查】Kruskal 最小生成树
-// 用法: 读 e[1..m] = {a, b, w}，sort 后用并查集从小到大加边
-// 结果: res = MST 权值和；cnt < n-1 说明图不连通（输出 impossible）
+// 用法: Kruskal K;（放全局）  K.n = n; K.m = m;  读 K.e[1..m] = {a, b, w};  K.run()
+// 结果: K.res = MST 权值和；K.cnt < n-1 说明图不连通（输出 impossible）
 // 复杂度: O(m log m)，稀疏图首选
+// 10.22: 仅把原来的全局变量 / 函数放进结构体（main 里的建树循环挪成 run），算法代码未改
 //Kruskal算法求最小生成树
 struct edge
 {
@@ -18,28 +17,24 @@ struct edge
   {
     return w<x.w;
   }
-}e[N];
+};
 
-int find(int u)
-{
-  if(u!=fa[u])
+struct Kruskal{
+  int n,m,res,cnt;
+  int fa[N];
+  edge e[N];
+
+  int find(int u)
   {
-    fa[u]=find(fa[u]);
-  }
-  return fa[u];
-}
-
-signed main()
-{
-    ios::sync_with_stdio(false);
-    cin.tie(0);
-    cout.tie(0);
-    
-    cin>>n>>m;
-    for(int i=1;i<=m;i++)
+    if(u!=fa[u])
     {
-      cin>>e[i].a>>e[i].b>>e[i].w;
+      fa[u]=find(fa[u]);
     }
+    return fa[u];
+  }
+
+  void run()
+  {
     sort(e+1,e+m+1);
     for(int i=1;i<=n;i++)
     {
@@ -56,12 +51,29 @@ signed main()
         cnt++;
       }
     }
-    if(cnt<n-1)
+  }
+};
+
+Kruskal K;
+
+signed main()
+{
+    ios::sync_with_stdio(false);
+    cin.tie(0);
+    cout.tie(0);
+
+    cin>>K.n>>K.m;
+    for(int i=1;i<=K.m;i++)
+    {
+      cin>>K.e[i].a>>K.e[i].b>>K.e[i].w;
+    }
+    K.run();
+    if(K.cnt<K.n-1)
     {
       cout<<"impossible"<<endl;
     }
-    else  cout<<res<<endl;
-    
+    else  cout<<K.res<<endl;
+
 
     return 0;
 }

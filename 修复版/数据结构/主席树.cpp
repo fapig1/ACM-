@@ -5,90 +5,96 @@ using namespace std;
 
 // 【速查】主席树（可持久化数组 / 可持久化线段树）
 // 用途: 每次操作基于某个历史版本：单点改、单点查（P3919）；Pseg 里附区间第 k 小写法
-// 用法: root[0] = build(1, 1, n);  root[i] = update(root[ver], 1, n, pos, v);  query(root[ver], 1, n, pos)
+// 用法: PersistentArray P;（放全局，节点池很大）  P.vec[1..n] = 初值;  P.root[0] = P.build(1, 1, n);
+//       P.root[i] = P.update(P.root[ver], 1, n, pos, v);  P.query(P.root[ver], 1, n, pos)
 //       只查询的操作也要 root[i] = root[ver]
+// 10.22: 仅把原来的全局变量 / 函数放进结构体，算法代码未改
 // 复杂度: 每次 O(log n) 时间 + O(log n) 新节点；节点池 N*25，大约 n + q·log n 个
 //https://www.luogu.com.cn/problem/P3919
 //主席树单点修改单点查询
 
 const int N=1e6+5;
 
-struct node{
-    int l,r;
-    ll val;
-}tree[N*25];
-//节点数按 (n + q·log n) 估计: n=1e6,q=1e6 时 ≈ 1e6+2e7 = 2.1e7, N*25=2.5e7 留有余量
-//原版 N*40 = 4e7 节点 × 16B = 640MB, 512MB 内存限制的评测机会 MLE
+struct PersistentArray{
+    struct node{
+        int l,r;
+        ll val;
+    }tree[N*25];
+    //节点数按 (n + q·log n) 估计: n=1e6,q=1e6 时 ≈ 1e6+2e7 = 2.1e7, N*25=2.5e7 留有余量
+    //原版 N*40 = 4e7 节点 × 16B = 640MB, 512MB 内存限制的评测机会 MLE
 
-vector<ll> vec(N);
-vector<int> root(N);//root表示第i个版本的根节点的index
+    vector<ll> vec=vector<ll>(N);
+    vector<int> root=vector<int>(N);//root表示第i个版本的根节点的index
 
-int top=0;
-//在更新操作时进行动态开点的函数
-int clone(int ind){
-    top++;
-    tree[top]=tree[ind];
-    return top;
-}
+    int top=0;
+    //在更新操作时进行动态开点的函数
+    int clone(int ind){
+        top++;
+        tree[top]=tree[ind];
+        return top;
+    }
 
-//建树
-int build(int ind,int l,int r){
-    top++;
-    ind=top;
+    //建树
+    int build(int ind,int l,int r){
+        top++;
+        ind=top;
 
-    if(l==r){
-        tree[ind].val=vec[l];
+        if(l==r){
+            tree[ind].val=vec[l];
+            return ind;
+        }
+
+        int mid=(l+r)/2;
+        //实际上更新点可以有很多种方式，我使用的方式是为了统一更新建树和查询函数参数的格式
+        //build里面的第一个参数意义不大，为了统一参数那么写的，写一样的就行
+        tree[ind].l = build(tree[ind].l,l,mid);
+        tree[ind].r = build(tree[ind].r,mid+1,r);
         return ind;
     }
 
-    int mid=(l+r)/2;
-    //实际上更新点可以有很多种方式，我使用的方式是为了统一更新建树和查询函数参数的格式
-    //build里面的第一个参数意义不大，为了统一参数那么写的，写一样的就行
-    tree[ind].l = build(tree[ind].l,l,mid);
-    tree[ind].r = build(tree[ind].r,mid+1,r);
-    return ind;
-}
+    //更新
+    int update(int ind,int l,int r,int t,ll v){
+        ind=clone(ind);
 
-//更新
-int update(int ind,int l,int r,int t,ll v){
-    ind=clone(ind);
-
-    if(l==r){
-        tree[ind].val=v;
+        if(l==r){
+            tree[ind].val=v;
+            return ind;
+        }
+        int mid=(l+r)/2;
+        if(t<=mid){
+            tree[ind].l=update(tree[ind].l,l,mid,t,v);
+        }else{
+            tree[ind].r=update(tree[ind].r,mid+1,r,t,v);
+        }
         return ind;
     }
-    int mid=(l+r)/2;
-    if(t<=mid){
-        tree[ind].l=update(tree[ind].l,l,mid,t,v);
-    }else{
-        tree[ind].r=update(tree[ind].r,mid+1,r,t,v);
-    }
-    return ind;
-}
 
-//查询
-ll query(int ind,int l,int r,int t){
-    if(l==r){
-        return tree[ind].val; 
-    }
+    //查询
+    ll query(int ind,int l,int r,int t){
+        if(l==r){
+            return tree[ind].val; 
+        }
 
-    int mid=(l+r)/2;
-    if(t<=mid){
-        return query(tree[ind].l,l,mid,t);
-    }else{
-        return query(tree[ind].r,mid+1,r,t);
+        int mid=(l+r)/2;
+        if(t<=mid){
+            return query(tree[ind].l,l,mid,t);
+        }else{
+            return query(tree[ind].r,mid+1,r,t);
+        }
     }
-}
+};
+
+PersistentArray P;
 
 int n,q;
 void solve(){
     cin>>n>>q;
 
     for(int i = 1;i <= n;i ++){
-        cin>>vec[i];
+        cin>>P.vec[i];
     }
 
-    root[0]=build(1,1,n);
+    P.root[0]=P.build(1,1,n);
     for(int i=1;i<=q;i++){
         int version;
         int command;
@@ -97,13 +103,13 @@ void solve(){
             int t;
             ll v;
             cin>>t>>v;
-            root[i]=update(root[version],1,n,t,v);
+            P.root[i]=P.update(P.root[version],1,n,t,v);
         }else{
             int t;
             cin>>t;
-            ll ans=query(root[version],1,n,t);
+            ll ans=P.query(P.root[version],1,n,t);
             cout<<ans<<endl;
-            root[i]=root[version];
+            P.root[i]=P.root[version];
         }
 
     }
