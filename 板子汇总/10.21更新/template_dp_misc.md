@@ -243,65 +243,109 @@ signed main(){
 ### 数位DP
 
 > tight/started 记忆化框架，按注释改 check/trans/valid。
-> 【10.22 结构体封装】原全局变量 + 全局函数改为结构体 / 传参函数，用法见块内速查卡。
 
 ```cpp
-using ll = long long;
+#define int long long
 
-// 【速查】数位 DP（记忆化搜索框架，结构体封装）
+// 【速查】数位 DP（记忆化搜索框架）
 // 用途: 统计 [l, r] 内满足某种"按位条件"的数的个数
-// 用法: DigitDP dp;  dp.base = 进制;  ll ans = dp.calc(r) - dp.calc(l - 1);
-// 改题: 只改"按题意修改"那一段：状态个数 S、trans（加一位后的新状态）、valid（剪枝）、check（终态是否合法）、
-//       是否计入 0（calc 开头）；状态有多维就把 state 编码成一个整数
-// 记忆化: f[dep][state] 只在 !tight && started 时有效，和上界无关，所以多次 calc 不用清空
-//         （若状态和数字总位数有关，就每次 calc 前 reset()）
-// 复杂度: O(位数 × S × base)
-// 10.22: 原版是全局 f / num / base + 全局函数，已封装为结构体
-struct DigitDP {
-    // ---- 按题意修改 ----
-    static const int S = 100;                  // 状态个数上限
-    int base = 2;
-    bool check(int state) { return true; }      // 最终状态是否合法
-    int trans(int state, int d) { return state; }   // 在末尾接上数字 d 之后的状态
-    bool valid(int state) { return true; }      // 中间剪枝，不需要就 return true
-    // --------------------
-    vector<int> num;
-    vector<array<ll, S>> f;
+// 用法: 改 base(进制)、trans(状态转移)、valid(剪枝)、check(终态是否合法)、f 的维度；
+//       答案 = calc(r) - calc(l - 1)；init() 清空记忆化（状态和上界无关时只需调一次）
+// 复杂度: O(位数 × 状态数 × base)
+// 需要改：维度根据状态设计
+// f[dep][state]：剩余 dep 位，状态为 state，且 !tight && started 时的方案数
+// 这个状态不能存有前效性的状态，即如果状态与sz有关，即每一个不同的sz对应的f可能不同时，可以尝试多次调用init或者将所有数补全到最高位即可
+int f[64][100];
 
-    DigitDP() { reset(); }
-    void reset() { f.assign(64, {}); for (auto& row : f) row.fill(-1); }
+vector<int> num;
 
-    ll dfs(int dep, int state, bool tight, bool started) {
-        if (dep == 0) return started && check(state) ? 1 : 0;   // 改: 是否允许全 0
-        if (!tight && started && f[dep][state] != -1) return f[dep][state];
-        int up = tight ? num[num.size() - dep] : base - 1;
-        ll ans = 0;
-        for (int d = 0; d <= up; d++) {
-            if (!started && d == 0) ans += dfs(dep - 1, 0, tight && d == up, false);
-            else {
-                int ns = trans(state, d);
-                if (valid(ns)) ans += dfs(dep - 1, ns, tight && d == up, true);
+// 需要改：进制，二进制写 2，十进制写 10
+int base = 2;
+
+void init(){
+    memset(f, -1, sizeof(f));
+}
+
+// 需要改：最终状态是否合法
+bool check(int state){
+    return true;
+}
+
+// 需要改：状态转移
+int trans(int state, int d){
+    return state;
+}
+
+// 需要改：中间剪枝，简单题直接 return true
+bool valid(int state){
+    return true;
+}
+
+// 需要改：如果状态有多个分量，dfs 参数和 f 维度同步改
+int dfs(int dep, int state, bool tight, bool started){
+    if(dep == 0){
+        if(!started) return 0; // 需要改：是否允许全 0
+        return check(state) ? 1 : 0;
+    }
+
+    if(!tight && started){
+        int &v = f[dep][state];
+        if(~v) return v;
+    }
+
+    int idx = num.size() - dep;
+    int up = tight ? num[idx] : base - 1;
+
+    int ans = 0;
+
+    for(int d = 0; d <= up; d++){
+        if(!started && d == 0){
+            ans += dfs(dep - 1, 0, tight && (d == up), 0);
+        }else{
+            int ns = trans(state, d);
+            if(valid(ns)){
+                ans += dfs(dep - 1, ns, tight && (d == up), 1);
             }
         }
-        if (!tight && started) f[dep][state] = ans;
-        return ans;
     }
-    ll calc(ll x) {                            // [1, x] 中合法的数的个数
-        if (x <= 0) return 0;                   // 改: 是否计入数字 0
-        num.clear();
-        for (; x; x /= base) num.push_back(x % base);
-        reverse(num.begin(), num.end());
-        return dfs(num.size(), 0, true, false);  // 改: 初始状态
-    }
-};
 
-int main() {
+    if(!tight && started){
+        f[dep][state] = ans;
+    }
+
+    return ans;
+}
+
+// 需要改：边界、初始状态
+int calc(int x){
+    if(x <= 0) return 0; // 需要改：是否允许数字 0
+    num.clear();
+    while(x){
+        num.push_back(x % base);
+        x /= base;
+    }
+    reverse(num.begin(), num.end());
+    int sz = num.size();
+
+    // 需要改：初始状态，一般是 0
+    return dfs(sz, 0, 1, 0);
+}
+
+void solve(){
+    int l, r;
+    cin >> l >> r;
+    cout << calc(r) - calc(l - 1) << "\n";
+}
+
+signed main(){
     ios::sync_with_stdio(false);
     cin.tie(0);
-    DigitDP dp;
-    ll l, r;
-    cin >> l >> r;
-    cout << dp.calc(r) - dp.calc(l - 1) << "\n";
+    init();
+    int t = 1;
+    // cin >> t; // 多组数据时打开
+    while(t--){
+        solve();
+    }
     return 0;
 }
 ```

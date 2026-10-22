@@ -1,63 +1,79 @@
 #include <bits/stdc++.h>
 using namespace std;
+#define int long long
 
-// 【速查】KMP（前缀函数）
-// 用途: 模式串 p 在文本 s 中所有出现位置；border、最小循环节
-// 用法: auto pi = prefixFunction(p);   // pi[i] = p[0..i] 的最长相等真前后缀长度（0-based）
-//       auto pos = kmpFind(s, p);      // p 在 s 中所有出现的起点（0-based）
-// 常用: p 的最小循环节长度 = m - pi[m-1]（若能整除 m 则 p 由它重复构成）
-// 复杂度: O(n + m)
-// 10.22: 原版写在 main 里、用全局 char 数组，已改为函数
-vector<int> prefixFunction(const string& p) {
-    int m = p.size();
-    vector<int> pi(m, 0);
-    for (int i = 1, j = 0; i < m; i++) {
-        while (j && p[i] != p[j]) j = pi[j - 1];
-        if (p[i] == p[j]) j++;
-        pi[i] = j;
-    }
-    return pi;
-}
-vector<int> kmpFind(const string& s, const string& p) {
-    vector<int> res;
-    if (p.empty()) return res;
-    auto pi = prefixFunction(p);
-    for (int i = 0, j = 0; i < (int)s.size(); i++) {
-        while (j && s[i] != p[j]) j = pi[j - 1];
-        if (s[i] == p[j]) j++;
-        if (j == (int)p.size()) { res.push_back(i - j + 1); j = pi[j - 1]; }
-    }
-    return res;
-}
+const int N=1e6+10;
+int n,m;
+char s1[N],s2[N];
+string s,p;
+int ne[N];
 
+//马拉车(Manacher)求最长回文子串长度
+//原版 getd() 无 '#' 分隔符且无边界检查(不能处理偶回文, 越界为 UB), 且从未被调用 —— 已重写
+//d[i]: 变换串 t = "#a#b#..." 中以 i 为中心的回文臂长, 恰等于原串对应回文的长度
+int d[N * 2];
 // 【速查】Manacher 最长回文子串
-// 用法: vector<int> d;  int len = manacher(s, d);   // 返回最长回文子串长度（奇偶都算）
-// 进阶: d[i] 是变换串 "#a#b#…" 中以 i 为中心的回文臂长（= 原串对应回文的长度），
-//       中心为原串 s[k] 的位置是 i = 2k+1，中心在 s[k-1]、s[k] 之间的位置是 i = 2k
+// 用法: int len = manacher(s);    // 返回最长回文子串长度（奇偶都算）
+// 进阶: 调用后 d[i] 是变换串 "#a#b#" 中以 i 为中心的回文长度（= 原串回文长度）
 // 复杂度: O(n)
-int manacher(const string& str, vector<int>& d) {
+int manacher(const string& str){
     string t = "#";
-    for (char c : str) { t += c; t += '#'; }
+    for(char c : str){ t += c; t += '#'; }
     int m = t.size(), C = 0, R = 0, best = 0;
-    d.assign(m, 0);
-    for (int i = 0; i < m; i++) {
+    for(int i = 0; i < m; i++){
         int k = (i < R) ? min(d[2 * C - i], R - i) : 0;
-        while (i - k - 1 >= 0 && i + k + 1 < m && t[i - k - 1] == t[i + k + 1]) k++;
+        while(i - k - 1 >= 0 && i + k + 1 < m && t[i - k - 1] == t[i + k + 1]) k++;
         d[i] = k;
-        if (i + k > R) { C = i; R = i + k; }
-        best = max(best, d[i]);
+        if(i + k > R){ C = i; R = i + k; }
+        best = max(best, (int)d[i]);
     }
     return best;
 }
-int manacher(const string& str) { vector<int> d; return manacher(str, d); }
 
-// 示例: 读文本 s 和模式 p，输出每次出现的起点（1-based），再输出 p 的前缀函数
-int main() {
+
+// 【速查】KMP（写在 main 里，1-based）
+// 用途: 模式串 p 在文本 s 中所有出现位置；ne[i] = p[1..i] 的最长相等真前后缀长度（border）
+// 用法: s1、s2 是 1-based 的文本/模式；第一个循环求 ne，第二个循环匹配，j == n 时找到一次（起点 i-n+1）
+// 常用: 最小循环节长度 = n - ne[n]
+// 复杂度: O(n + m)
+signed main(){
     ios::sync_with_stdio(false);
     cin.tie(0);
-    string s, p;
-    cin >> s >> p;
-    for (int x : kmpFind(s, p)) cout << x + 1 << '\n';
-    for (int v : prefixFunction(p)) cout << v << ' ';
+    cout.tie(0);
+  
+    cin>>s>>p;
+    int m=s.length(),n=p.length();
+    ne[1]=0;
+    for(int i=1;i<=m;i++)
+    {
+      s1[i]=s[i-1];
+    }
+    for(int i=1;i<=n;i++)
+    {
+      s2[i]=p[i-1];
+    }
+    for(int i=2,j=0;i<=n;i++)
+    {
+      while(j&&s2[i]!=s2[j+1]) j=ne[j];
+      if(s2[i]==s2[j+1]) j++;
+      ne[i]=j;
+    }
+    for(int i=1,j=0;i<=m;i++)
+    {
+      while(j&&s1[i]!=s2[j+1]) j=ne[j];
+      if(s1[i]==s2[j+1]) j++;
+      if(j==n) 
+      {
+        cout<<i-n+1<<endl;
+        j=ne[j];
+      }
+    }
+
+    for(int i=1;i<=n;i++)
+    {
+      cout<<ne[i]<<' ';
+    }
+
     return 0;
 }
+

@@ -1,33 +1,58 @@
 #include <bits/stdc++.h>
+#define int long long
+#define endl '\n'
 using namespace std;
-using ll = long long;
 
+const int N = 1e5 + 5;
+const int mod = 80112002;
+int n, m, s, k, t;
+int x, y, z;
+vector<pair<int, int>>g[N];
+int dist[N];
+int back[N];
+bool st[N];
 // 【速查】Bellman-Ford（最多经过 k 条边的最短路）
-// 用法: vector<array<ll,3>> edges;  edges.push_back({u, v, w});     // 有向边，可有负边
-//       auto d = bellmanFordK(n, edges, s, k);   // d[v] = s 到 v 最多 k 条边的最短距离，到不了为 BF_INF
+// 用法: g[x].push_back({y, w}); 设好 n、k 后 bell()
+// 返回: 1 到 n 最多 k 条边的最短距离；到不了返回 0x3f3f3f3f3f3f3f3f（可有负边）
 // 复杂度: O(k · m)；每轮必须用上一轮的 back 数组，否则会"串联"超过 k 条边
-const ll BF_INF = LLONG_MAX / 4;
-vector<ll> bellmanFordK(int n, const vector<array<ll, 3>>& edges, int s, int k) {
-    vector<ll> d(n + 1, BF_INF), back;
-    d[s] = 0;
-    for (int it = 0; it < k; it++) {
-        back = d;
-        for (auto& [u, v, w] : edges)
-            if (back[u] < BF_INF && back[u] + w < d[v]) d[v] = back[u] + w;
+//bellman-ford算法，有边数限制为k的单源最短路
+int bell()
+{
+    memset(dist, 0x3f, sizeof dist);
+    dist[1] = 0;
+    for (int p = 0; p < k; p++)
+    {
+        memcpy(back, dist, sizeof dist);
+        for (int j = 1; j <= n; j++)
+        {
+            for (auto& t : g[j])
+            {
+                int a = t.first, b = t.second;
+
+                dist[a] = min(back[j] + b, dist[a]);
+            }
+        }
     }
-    return d;
+    if (dist[n] > 0x3f3f3f3f3f3f3f3f / 2) return 0x3f3f3f3f3f3f3f3f;
+    else
+        return dist[n];
 }
 
-// 示例: 读 n m k 和 m 条边，输出 1 到 n 最多 k 条边的最短路，到不了输出 impossible
-int main() {
+signed main() {
     ios::sync_with_stdio(false);
     cin.tie(0);
-    int n, m, k;
+    cout.tie(0);
+
     cin >> n >> m >> k;
-    vector<array<ll, 3>> edges(m);
-    for (auto& [u, v, w] : edges) cin >> u >> v >> w;
-    auto d = bellmanFordK(n, edges, 1, k);
-    if (d[n] >= BF_INF) cout << "impossible" << '\n';
-    else cout << d[n] << '\n';
+    for (int i = 1; i <= m; i++)
+    {
+        cin >> x >> y >> z;
+        g[x].push_back({ y,z });
+    }
+    int res = bell();
+    if (res == 0x3f3f3f3f3f3f3f3f) cout << "impossible" << endl;
+    else
+        cout << res << endl;
+    
     return 0;
 }

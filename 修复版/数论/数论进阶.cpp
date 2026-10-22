@@ -260,88 +260,105 @@ int exbsgs(int a, int b, int p){
 // Lucas: C(n,m) mod p，p 为小质数(n 可远大于 p)。
 // 定理: 把 n、m 按 p 进制展开，C(n,m) ≡ ∏ C(n_i, m_i) (mod p)。
 // 直观: 在 (1+x)^n 上做 Frobenius 同余，(1+x)^p ≡ 1+x^p (mod p)，逐位相乘。
-// 验证: Lucas(3).C(5, 2) = 1 (C(5,2)=10≡1; 5=12₃, 2=02₃ → C(1,0)C(2,2)=1)。
-// 10.22: 原版是全局 lucas_fac[1e6] / fac_ex[1e6] 数组 + init 函数（换模数要记得重新 init），已封装为结构体
+// 前提: p 为质数，n,m >= 0；lucas_fac 只开到 1e6，因此 p <= 1e6。
+// 验证: lucas(5, 2, 3) = 1 (C(5,2)=10≡1; 5=12₃, 2=02₃ → C(1,0)C(2,2)=1)。
+int lucas_fac[1000005];
 
-// 【速查】Lucas 定理：C(n, m) mod p，p 是小质数，n、m 可以很大（到 1e18）
-// 用法: Lucas lu(p);  lu.C(n, m)；换模数就新建一个对象
-// 复杂度: 预处理 O(p)，单次 O(log_p n)（逆阶乘也预处理了）
-struct Lucas {
-    int p;
-    vector<int> fac, ifac;
-    Lucas(int p) : p(p), fac(p), ifac(p) {
-        fac[0] = 1;
-        for (int i = 1; i < p; i++) fac[i] = fac[i - 1] * i % p;
-        ifac[p - 1] = ksm(fac[p - 1], p - 2, p);
-        for (int i = p - 1; i > 0; i--) ifac[i - 1] = ifac[i] * i % p;
+// 预处理 0!..(p-1)! mod p；换模数需重新调用
+void lucas_init(int p){
+    lucas_fac[0] = 1;
+    for(int i = 1; i < p; i++){
+        lucas_fac[i] = lucas_fac[i - 1] * i % p;
     }
-    int small(int n, int m) { return m > n ? 0 : fac[n] * ifac[m] % p * ifac[n - m] % p; }   // 0 <= n, m < p
-    int C(int n, int m) {
-        if (m < 0 || m > n) return 0;
-        int res = 1;
-        for (; m; n /= p, m /= p) {            // 每次剥掉 p 进制最低位
-            res = res * small(n % p, m % p) % p;
-            if (!res) break;
-        }
-        return res;
-    }
-};
+}
+
+// C(n,m) mod p，要求 0 <= n,m < p（调用方已取位，故这里不会越界）
+// 用费马小定理求分母逆元，单次 O(log p)。
+int C_small(int n, int m, int p){
+    if(m > n) return 0;
+    return lucas_fac[n] * ksm(lucas_fac[m], p - 2, p) % p
+         * ksm(lucas_fac[n - m], p - 2, p) % p;
+}
+
+// 【速查】Lucas 定理：C(n, m) mod p，p 是小质数（≤ 1e6），n、m 可以很大
+// 用法: lucas_init(p); lucas(n, m, p)；换 p 要重新 lucas_init
+// 复杂度: 预处理 O(p)，单次 O(log_p n · log p)
+// Lucas 主递归: 每层剥掉 p 进制最低位，深度 O(log_p n)
+int lucas(int n, int m, int p){
+    if(m == 0) return 1;
+    return C_small(n % p, m % p, p) * lucas(n / p, m / p, p) % p;
+}
 
 // exLucas: C(n,m) mod p^k (p 质数)。核心: 消去 p 因子 + 周期阶乘 + 逆元。
 // 思路: 把 n! 写成 p^{v} * (与 p 互质的部分)，组合数三部分相除，
 //       互质部分可逆，p 的指数用 Legendre 公式算；最后乘回 p^{v}。
-// fac[i] = ∏_{j<=i, p∤j} j (mod pk)，以 pk 为周期。
-// f(n) = n! 去掉全部 p 因子后的部分 (mod pk) = f(n/p) * fac[pk]^{n/pk} * fac[n%pk]
-//   第一项收集所有 p 的倍数贡献，后两项是完整周期与零头。
-struct ExLucasPK {
-    int p, k, pk;
-    vector<int> fac;
-    ExLucasPK(int p, int k) : p(p), k(k), pk(1) {
-        for (int i = 0; i < k; i++) pk *= p;
-        fac.assign(pk + 1, 1);
-        for (int i = 1; i <= pk; i++) fac[i] = (i % p) ? fac[i - 1] * i % pk : fac[i - 1];
+// fac_ex[i] = ∏_{j<=i, p∤j} j (mod pk)，以 pk 为周期。
+// 注意: fac_ex 只开到 1e6，因此要求 pk <= 1e6；换模数必须重新 exlucas_init。
+int fac_ex[1000005];
+
+// 预处理一个周期内的“去 p 阶乘”前缀积，O(pk)
+void exlucas_init(int p, int pk){
+    fac_ex[0] = 1;
+    for(int i = 1; i <= pk; i++){
+        if(i % p) fac_ex[i] = fac_ex[i - 1] * i % pk;
+        else fac_ex[i] = fac_ex[i - 1];
     }
-    int f(int n) {
-        int res = 1;
-        for (; n; n /= p) res = res * ksm(fac[pk], n / pk, pk) % pk * fac[n % pk] % pk;
-        return res;
-    }
-    int C(int n, int m) {                      // C(n,m) mod p^k，要求 0 <= m <= n
-        int cnt = 0;                           // v_p(C(n,m))，Legendre 公式
-        for (int i = n; i; i /= p) cnt += i / p;
-        for (int i = m; i; i /= p) cnt -= i / p;
-        for (int i = n - m; i; i /= p) cnt -= i / p;
-        if (cnt >= k) return 0;                // p 的指数超过 pk 中含量 → 0
-        int res = ksm(p, cnt, pk);
-        res = res * f(n) % pk;
-        res = res * inv(f(m), pk) % pk;
-        res = res * inv(f(n - m), pk) % pk;
-        return res;
-    }
-};
+}
+
+// n! 去掉全部 p 因子后的部分 (mod pk)
+// 递推: f(n) = f(n/p) * fac_ex[pk]^{n/pk} * fac_ex[n%pk] (mod pk)
+// 第一项收集所有 p 的倍数贡献，后两项是完整周期与零头。
+int f(int n, int p, int pk){
+    if(n == 0) return 1;
+    return f(n / p, p, pk) * ksm(fac_ex[pk], n / pk, pk) % pk * fac_ex[n % pk] % pk;
+}
+
+// C(n,m) mod p^k，要求 n,m >= 0 且 n >= m（否则按 0 处理需自行加判断）
+int C_mod_pk(int n, int m, int p, int k){
+    int pk = 1;
+    for(int i = 0; i < k; i++) pk *= p;
+    int cnt = 0;                       // v_p(C(n,m))
+    for(int i = n; i; i /= p) cnt += i / p;
+    for(int i = m; i; i /= p) cnt -= i / p;
+    for(int i = n - m; i; i /= p) cnt -= i / p;
+    if(cnt >= k) return 0;             // p 的指数超过 pk 中含量 → 0
+    int res = 1;
+    if(cnt) res = res * ksm(p, cnt, pk) % pk;
+    res = res * f(n, p, pk) % pk;
+    res = res * inv(f(m, p, pk), pk) % pk;
+    res = res * inv(f(n - m, p, pk), pk) % pk;
+    return res;
+}
 
 // 【速查】扩展 Lucas：C(n, m) mod M，M 任意（不必是质数）
-// 用法: exlucas(n, m, M)；m > n 返回 0；M 的每个质数幂因子 p^k 要能开 O(p^k) 的数组
-// 做法: 分解 M = ∏ p^k，逐块用 ExLucasPK 求值，再 CRT 合并：
-//       贡献 a * (M/p^k) * inv(M/p^k mod p^k, p^k)（模 M）
-// 复杂度: O(Σ p^k + log M · log n)
+// 用法: exlucas(n, m, M)；要求 n ≥ m，M 的每个质数幂因子 ≤ 1e6
+// 复杂度: O(Σ p^k + log)
+// C(n,m) mod M，M 任意合数: 分解 M = ∏ p^k，逐块用 exLucas 求值，再 CRT 合并。
+// 合并: 对每个 p^k 算 a，贡献 a * (M/p^k) * inv(M/p^k mod p^k, p^k)（模 M）。
+// 复杂度: 对 M 的每个质因子做一次 O(p^k) 预处理，总 O(∑ p^k + log M * log n)。
+// 适用: M <= 1e6 左右（受 fac_ex 大小限制）；M 很大时需动态分配或换算法。
 // 验证: exlucas(5, 2, 12) = 10 (mod 4 得 2，mod 3 得 1，CRT 合并得 10)。
-int exlucas(int n, int m, int M) {
-    if (m < 0 || m > n) return 0;
+int exlucas(int n, int m, int M){
     int ans = 0, MM = M;
-    auto addPart = [&](int p, int k) {
-        ExLucasPK e(p, k);
-        int a = e.C(n, m);
-        ans = (ans + a * (M / e.pk) % M * inv(M / e.pk % e.pk, e.pk) % M) % M;
-    };
-    for (int p = 2; p * p <= MM; p++) {
-        if (MM % p) continue;
-        int k = 0;
-        while (MM % p == 0) MM /= p, k++;
-        addPart(p, k);
+    for(int p = 2; p * p <= MM; p++){
+        if(MM % p) continue;
+        int k = 0, pk = 1;
+        while(MM % p == 0){
+            MM /= p;
+            k++;
+            pk *= p;
+        }
+        exlucas_init(p, pk);
+        int a = C_mod_pk(n, m, p, k);
+        ans = (ans + a * (M / pk) % M * inv(M / pk % pk, pk) % M) % M;
     }
-    if (MM > 1) addPart(MM, 1);
-    return ans % M;
+    if(MM > 1){
+        int p = MM, k = 1, pk = p;
+        exlucas_init(p, pk);
+        int a = C_mod_pk(n, m, p, k);
+        ans = (ans + a * (M / pk) % M * inv(M / pk % pk, pk) % M) % M;
+    }
+    return ans;
 }
 
 // 【速查】求质数 p 的最小原根

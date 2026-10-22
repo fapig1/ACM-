@@ -8,72 +8,146 @@ using namespace std;
 //       康托展开、FFT/NTT、多项式求逆、FWT、整除分块、杜教筛、类欧几里得、SOSDP。
 // 约定:
 //   * 本文件用 #define int long long，所有 int 均为 64 位；与自带 int 的代码拼接时注意。
-//   * 筛法封装在 Sieve 结构体里（Sieve sv(n)），质数表是 sv.primes，不再有全局 primes；
-//     狄利克雷变换等需要质数表的函数显式传入 sv.primes。
+//   * 全局数组按 maxn = 1e6 开；linear_sieve 的内存约为 6 个 long long 数组，按题目缩小 maxn。
+//   * init 与 linear_sieve 都会向全局 primes 里 push，二者不要混用（否则质数表重复）。
 //   * 模数统一用全局 mod = 1e9+7；NTT 单独使用 NTT_MOD = 998244353。
 //   * 类欧的公式与变式推导见 数论恒等式.md 第 14 节。
 // =====================================================================
 
+//欧拉筛
 const int mod = 1e9 + 7;
+const int maxn = 1e6;
+vector<int> primes;
+// 欧拉筛（线性筛）: O(maxn) 求出每个数的最小质因子 min_primes[i]，同时得到全局质数表 primes。
+// 原理: 每个合数只被它的最小质因子筛掉一次，因此总复杂度是线性的。
+// 注意: 只筛到 maxn，getPrimes(x) 要求 x <= maxn；x = 0 或 1 时 min_primes 无效。
+int min_primes[maxn + 5];
+// 【速查】欧拉筛（线性筛质数 + 最小质因子）
+// 用法: init() 后 primes 是 ≤ maxn 的质数表，min_primes[x] 是 x 的最小质因子
+// 复杂度: O(maxn)；和 linear_sieve 二选一（都会往 primes 里 push）
+void init(){
+    for(int i = 2; i <= maxn; i++){
+        if(!min_primes[i]){
+            min_primes[i] = i;
+            primes.push_back(i);
+        }
+        for(int p : primes){
+            if(p > min_primes[i] || i * p > maxn) break;
+            min_primes[i * p] = p;
+        }
+    }
+}
+// 【速查】用最小质因子表 O(log x) 分解质因数
+// 用法: 先 init()；getPrimes(x) -> 不同质因子（升序）；getPrimesCnt(x) -> {质因子, 次数}
+// 要求 x ≤ maxn；更大的数用试除 O(√x) 或 Pollard-Rho（数论进阶）
+// 分解质因数（不重复）: 返回 x 的所有不同质因子，升序，O(log x)
+// 依赖 init() 先筛出 min_primes；x 必须 <= maxn。
+vector<int> getPrimes(int x){
+    vector<int> res;
+    while(x > 1){
+        int p = min_primes[x];
+        res.push_back(p);
+        while(x % p == 0) x /= p;
+    }
+    return res;
+}
+// 分解质因数（带指数）: 返回 {(p, cnt)}，满足 x = ∏ p^cnt，升序，O(log x)
+// 例: 360 = 2^3 * 3^2 * 5 -> {(2,3),(3,2),(5,1)}
+vector<pair<int,int>> getPrimesCnt(int x){
+    vector<pair<int,int>> res;
+    while(x > 1){
+        int p = min_primes[x];
+        int cnt = 0;
+        while(x % p == 0){
+            x /= p;
+            cnt++;
+        }
+        res.push_back({p, cnt});
+    }
+    return res;
+}
 
-// 【速查】线性筛全家桶 Sieve：质数表、最小质因子、μ、φ、约数个数 τ、约数和 σ
-// 用法: Sieve sv(n);   // 一次 O(n) 筛出 1..n 的全部信息
-//       sv.primes（<= n 的质数，升序）  sv.minp[x]  sv.mu[x]  sv.phi[x]  sv.dcnt[x]（τ）  sv.dsum[x]（σ）
-//       sv.factor(x) -> {(p, 次数)}，sv.distinctPrimes(x) -> 不同质因子；都要求 2 <= x <= n，O(log x)
-// 复杂度: O(n)；数组用 int32，n = 1e7 时约 280MB，按需删掉不用的数组
-// 10.22: 原版是全局数组 + init() / linear_sieve() 两个函数共用一个全局 primes（混用会重复），已合并为结构体
-// 原理: 设 i 的最小质因子为 q，枚举质数 p 去筛 m = i*p：
-//   p < q  : p 与 i 互质，积性函数直接相乘
-//   p == q : p 是 m 的最小质因子，指数 +1，按"去掉一个 p"的商修正，然后 break
-//   每个合数只在其最小质因子处被筛一次，故总复杂度 O(n)
-struct Sieve {
-    int n;
-    vector<int> primes;
-    vector<int32_t> minp, mu, phi, dcnt, dsum, mexp, mpw;   // mexp: 最小质因子的指数；mpw: 1 + p + ... + p^mexp
 
-    Sieve(int n) : n(n), minp(n + 1, 0), mu(n + 1, 0), phi(n + 1, 0), dcnt(n + 1, 0), dsum(n + 1, 0), mexp(n + 1, 0), mpw(n + 1, 0) {
-        if (n >= 1) { mu[1] = 1; phi[1] = 1; dcnt[1] = 1; dsum[1] = 1; }
-        for (int i = 2; i <= n; i++) {
-            if (!minp[i]) {
-                minp[i] = i; primes.push_back(i);
-                mu[i] = -1; phi[i] = i - 1; dcnt[i] = 2; dsum[i] = i + 1; mexp[i] = 1; mpw[i] = i + 1;
-            }
-            for (int p : primes) {
-                if (p > minp[i] || i * p > n) break;
-                int m = i * p;
-                minp[m] = p;
-                if (p == minp[i]) {
-                    mu[m] = 0;
-                    phi[m] = phi[i] * p;
-                    mexp[m] = mexp[i] + 1;
-                    mpw[m] = mpw[i] * p + 1;
-                    dcnt[m] = dcnt[i] / (mexp[i] + 1) * (mexp[m] + 1);
-                    dsum[m] = dsum[i] / mpw[i] * mpw[m];
-                } else {
-                    mu[m] = -mu[i];
-                    phi[m] = phi[i] * (p - 1);
-                    mexp[m] = 1; mpw[m] = p + 1;
-                    dcnt[m] = dcnt[i] * 2;
-                    dsum[m] = dsum[i] * (p + 1);
-                }
+// 线性筛综合版：质数表 + 最小质因子（is_comp/minp_exp）+ 莫比乌斯函数 + 欧拉函数
+//              + 约数个数 + 约数和，全部 O(n)。
+// 调用 linear_sieve(n) 后直接使用全局数组；n 可以小于 maxn。
+//
+// 设 i 的最小质因子为 q（由质数表从小到大枚举隐式确定），枚举质数 p 去筛 m = i*p：
+//   p < q  : p 与 i 互质，各积性函数直接相乘
+//   p == q : p 是 m 的最小质因子，指数 +1，按“去掉一个 p”的商修正
+// 每个合数只在其最小质因子处被筛一次，故总复杂度 O(n)。
+//
+// 各数组含义:
+//   mu[i]        莫比乌斯函数 μ(i)
+//   phi_arr[i]   欧拉函数 φ(i)
+//   div_cnt[i]   约数个数 τ(i)
+//   div_sum[i]   约数和 σ(i)
+//   minp_exp[i]  i 的最小质因子指数
+//   minp_pwsum[i] 1 + p + ... + p^e（p 为最小质因子，e = minp_exp[i]）
+//
+// 注意: primes 是全局共享的，若之前调用过 init() 会重复；本函数假定 primes 为空。
+bool is_comp[maxn + 5];
+int mu[maxn + 5];          // 莫比乌斯函数
+int phi_arr[maxn + 5];     // 欧拉函数
+int div_cnt[maxn + 5];     // 约数个数
+int div_sum[maxn + 5];     // 约数和
+int minp_exp[maxn + 5];    // 最小质因子的指数
+int minp_pwsum[maxn + 5];  // 1 + p + p^2 + ... + p^(最小质因子指数)
+
+// 【速查】线性筛全家桶：μ、φ、约数个数 τ、约数和 σ
+// 用法: linear_sieve(n) 后直接用全局数组 mu[] phi_arr[] div_cnt[] div_sum[]（以及 primes）
+// 复杂度: O(n)；n ≤ maxn(1e6)，更大请调 maxn 并注意内存（6 个 long long 数组）
+void linear_sieve(int n){
+    mu[1] = 1; phi_arr[1] = 1; div_cnt[1] = 1; div_sum[1] = 1;
+    for(int i = 2; i <= n; i++){
+        if(!is_comp[i]){
+            primes.push_back(i);
+            mu[i] = -1;
+            phi_arr[i] = i - 1;
+            div_cnt[i] = 2;
+            div_sum[i] = i + 1;
+            minp_exp[i] = 1;
+            minp_pwsum[i] = i + 1;
+        }
+        for(int p : primes){
+            int m = i * p;
+            if(m > n) break;
+            is_comp[m] = true;
+            if(i % p == 0){
+                mu[m] = 0;
+                phi_arr[m] = phi_arr[i] * p;
+                minp_exp[m] = minp_exp[i] + 1;
+                minp_pwsum[m] = minp_pwsum[i] * p + 1;
+                div_cnt[m] = div_cnt[i] / (minp_exp[i] + 1) * (minp_exp[m] + 1);
+                div_sum[m] = div_sum[i] / minp_pwsum[i] * minp_pwsum[m];
+                break;
+            }else{
+                mu[m] = -mu[i];
+                phi_arr[m] = phi_arr[i] * (p - 1);
+                minp_exp[m] = 1;
+                minp_pwsum[m] = p + 1;
+                div_cnt[m] = div_cnt[i] * 2;
+                div_sum[m] = div_sum[i] * (p + 1);
             }
         }
     }
-    vector<pair<int, int>> factor(int x) {
-        vector<pair<int, int>> res;
-        while (x > 1) {
-            int p = minp[x], c = 0;
-            while (x % p == 0) x /= p, c++;
-            res.push_back({p, c});
-        }
-        return res;
-    }
-    vector<int> distinctPrimes(int x) {
-        vector<int> res;
-        for (auto [p, c] : factor(x)) res.push_back(p);
-        return res;
-    }
-};
+}
+
+
+// 旧欧拉筛单独函数
+// void init(){
+//     vector<bool> nop(maxn + 5);
+//     nop[0] = nop[1] = true;
+//     for(int i = 2; i <= maxn; i++){
+//         if(!nop[i]){
+//             primes.push_back(i);
+//             if(i > sqrt(maxn)) continue;
+//             for(int j = i * i; j <= maxn; j++){
+//                 nop[j] = true;
+//             }
+//         }
+//     }
+// }
 
 
 // 【速查】快速幂 x^a mod m
@@ -174,7 +248,7 @@ int excrt(vector<int> m, vector<int> a, int n){
 }
 
 // 【速查】单个数的欧拉函数 φ(n)（1..n 中与 n 互质的个数）
-// 用法: oula_phi(n)；要很多个 φ 就用 sieve_phi / Sieve
+// 用法: oula_phi(n)；要很多个 φ 就用 sieve_phi / linear_sieve
 // 复杂度: O(√n)
 // 单个数欧拉函数 φ(n)，O(√n)
 // 公式: φ(n) = n * ∏_{p|n} (1 - 1/p)，边分解边乘，避免除法丢精度。
@@ -192,10 +266,10 @@ int oula_phi(int n){
 }
 
 // 【速查】线性筛求 φ(1..n)
-// 用法: auto phi = sieve_phi(n);  phi[i] = φ(i)
+// 用法: auto phi = sieve_phi(n);  phi[i] = φ(i)；不碰全局 primes
 // 复杂度: O(n)
 // 筛法求欧拉函数（线性筛）: 返回长度为 n+1 的 phi 数组，phi[i] = φ(i)，O(n)。
-// 与 Sieve 的区别: 只求 φ，返回一个数组，更轻量。
+// 与 linear_sieve 的区别: 这里只需要 φ，函数内部自带局部质数表，不污染全局 primes。
 // 转移同样按 i % p 分两类:
 //   p | i     : p 已是 i 的质因子，φ(i*p) = φ(i) * p
 //   p ∤ i     : p 是新质因子，φ(i*p) = φ(i) * (p-1)
@@ -229,7 +303,7 @@ vector<int> sieve_phi(int n) {
     return phi;
 }
 
-// 莫比乌斯反演（μ、φ 由 Sieve 预处理）
+// 莫比乌斯反演（μ 由 linear_sieve 预处理，φ 同）
 // 约数形式: g(n) = Σ_{d|n} f(d)  <=>  f(n) = Σ_{d|n} μ(d) * g(n/d)
 // 倍数形式: g(n) = Σ_{n|d} f(d)  <=>  f(n) = Σ_{n|d} μ(d/n) * g(d)
 // 记忆: 反演就是“卷上 μ”，因为 μ * 1 = ε。
@@ -241,7 +315,7 @@ vector<int> sieve_phi(int n) {
 // 完整恒等式表与证明见 数论恒等式.md 第 3~5 节。
 
 // 狄利克雷前缀/后缀变换（快速 zeta 变换），O(n log log n)
-// 前置: 传入的 primes 必须包含所有 <= n 的质数（用 Sieve(n).primes）。
+// 前置: primes 必须包含所有 <= n 的质数（调用 init() 或 linear_sieve(n) 均可）。
 // 原理: 对每个质数 p 做一遍类似“高维前缀和”的扫描，枚举顺序保证每个数被其全部质因子更新。
 // 注意:
 //   1) 全部原地修改，需要保留原数组请先拷贝；
@@ -249,47 +323,47 @@ vector<int> sieve_phi(int n) {
 //   3) 下标从 1 开始使用，f[0] 不参与运算。
 
 // 【速查】狄利克雷前缀/后缀和（按约数/倍数做"高维前缀和"）
-// 用法: Sieve sv(n);  dirichlet_prefix_sum(f, n, sv.primes);   // f 为 1-based 数组，原地变换
+// 用法: 先有 primes（init 或 linear_sieve）；f 为 1-based 数组，原地变换
 //   prefix_sum: f[n] ← Σ_{d|n} f[d]     suffix_sum: f[d] ← Σ_{d|n} f[n]
 //   prefix_max / prefix_min 同理取最值；prefix_inv / suffix_inv 是逆变换（相当于卷 μ）
 // 复杂度: O(n log log n)
 // 前缀和: 变换后 f[n] = Σ_{d|n} f[d]
-void dirichlet_prefix_sum(vector<int>& f, int n, const vector<int>& primes){
+void dirichlet_prefix_sum(vector<int>& f, int n){
     for(int p : primes)
         for(int i = 1; i * p <= n; i++)
             f[i * p] += f[i];
 }
 
 // 后缀和: 变换后 f[d] = Σ_{d|n} f[n]
-void dirichlet_suffix_sum(vector<int>& f, int n, const vector<int>& primes){
+void dirichlet_suffix_sum(vector<int>& f, int n){
     for(int p : primes)
         for(int i = n / p; i >= 1; i--)
             f[i] += f[i * p];
 }
 
 // 前缀最值: 变换后 f[n] = max_{d|n} f[d]
-void dirichlet_prefix_max(vector<int>& f, int n, const vector<int>& primes){
+void dirichlet_prefix_max(vector<int>& f, int n){
     for(int p : primes)
         for(int i = 1; i * p <= n; i++)
             f[i * p] = max(f[i * p], f[i]);
 }
 
 // 前缀最值: 变换后 f[n] = min_{d|n} f[d]
-void dirichlet_prefix_min(vector<int>& f, int n, const vector<int>& primes){
+void dirichlet_prefix_min(vector<int>& f, int n){
     for(int p : primes)
         for(int i = 1; i * p <= n; i++)
             f[i * p] = min(f[i * p], f[i]);
 }
 
 // 前缀和的逆变换: 已知 g[n] = Σ_{d|n} f[d]，由 g 还原 f
-void dirichlet_prefix_inv(vector<int>& f, int n, const vector<int>& primes){
+void dirichlet_prefix_inv(vector<int>& f, int n){
     for(int p : primes)
         for(int i = n / p; i >= 1; i--)
             f[i * p] -= f[i];
 }
 
 // 后缀和的逆变换: 已知 g[d] = Σ_{d|n} f[n]，由 g 还原 f
-void dirichlet_suffix_inv(vector<int>& f, int n, const vector<int>& primes){
+void dirichlet_suffix_inv(vector<int>& f, int n){
     for(int p : primes)
         for(int i = 1; i * p <= n; i++)
             f[i] -= f[i * p];

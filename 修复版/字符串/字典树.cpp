@@ -1,59 +1,99 @@
-#include <bits/stdc++.h>
+#include<bits/stdc++.h>
 using namespace std;
+// 【速查】字典树 Trie（前缀计数）
+// 用法: insert(s) 插入；query(s) -> 以 s 为前缀的已插入串个数；字符集 A-Z a-z 0-9（hashn 映射）
+// 多组数据: solve 末尾已把用过的 ch/cnt 清零
+// 复杂度: 插入/查询 O(|s|)；空间 N × 70 个 int，N 按"所有串总长"开
+/* 原版有 #define int long long, 导致 ch[3e6][70] 每格 8B 共 1.68GB —— 已移除。
+ * 字符集 62 (大写/小写/数字), 每个节点 70 个儿子槽, int(4B) 下:
+ *   N=1e5 → 28MB; N=5e5 → 140MB。按题目"所有串总长"上限调整 N。 */
+const int N=1e5+10;
+const int base=13331;
+const int mod=1e9+7;
+int n,_T,q;
+string s;
+int ch[N][70]={0};
+int idx;
+int cnt[N];
 
-// 【速查】字典树 Trie（前缀计数 / 精确计数）
-// 用法: Trie t;  t.insert(s);  t.prefixCount(s) -> 以 s 为前缀的已插入串个数;  t.count(s) -> 恰好等于 s 的个数
-//       多组数据: t.clear()；字符集默认 A-Z a-z 0-9（改 SIGMA 和 id() 即可换成纯小写等）
-// 复杂度: 插入 / 查询 O(|s|)；节点按需开（vector），空间 = 总串长 × SIGMA 个 int
-// 10.22: 原版是全局 ch[N][70] 数组 + 手动清空，已封装为结构体
-struct Trie {
-    static const int SIGMA = 62;
-    vector<array<int, SIGMA>> ch;
-    vector<int> pass, ends;                    // pass: 经过该节点的串数（前缀计数）；ends: 在此结束的串数
+int hashn(char x)
+{
+  if(x>='A'&&x<='Z')
+  {
+    return x-'A';
+  }
+  else if(x>='a'&&x<='z')
+  {
+    return x-'a'+26;
+  }
+  else 
+  return x-'0'+52;
+}
 
-    Trie() { clear(); }
-    void clear() { ch.assign(1, {}); pass.assign(1, 0); ends.assign(1, 0); }
-    static int id(char c) {
-        if (c >= 'A' && c <= 'Z') return c - 'A';
-        if (c >= 'a' && c <= 'z') return c - 'a' + 26;
-        return c - '0' + 52;
-    }
-    void insert(const string& s) {
-        int p = 0;
-        for (char c : s) {
-            int j = id(c);
-            if (!ch[p][j]) {
-                ch[p][j] = ch.size();               // 先记下新编号再扩容，避免引用失效
-                ch.push_back({}); pass.push_back(0); ends.push_back(0);
-            }
-            p = ch[p][j];
-            pass[p]++;
-        }
-        ends[p]++;
-    }
-    int walk(const string& s) {
-        int p = 0;
-        for (char c : s) { p = ch[p][id(c)]; if (!p) return 0; }
-        return p;
-    }
-    int prefixCount(const string& s) { int p = walk(s); return p ? pass[p] : 0; }
-    int count(const string& s) { int p = walk(s); return p ? ends[p] : 0; }
-};
+void insert(string s)
+{
+  int p=0;
+  int len=s.length();
+  for(int i=0;i<len;i++)
+  {
+    int j=hashn(s[i]);
+    if(!ch[p][j]) ch[p][j]=++idx;
+    p=ch[p][j];
+    cnt[p]++;
+  }
+  
+}
 
-// 示例: 读 T 组，每组 n q、n 个串、q 个询问，输出以询问串为前缀的串个数
-int main() {
+int query(string s)
+{
+  int p=0;
+  int len=s.length();
+  for(int i=0;i<len;i++)
+  {
+    int j=hashn(s[i]);
+    if(!ch[p][j]) return 0;
+    p=ch[p][j];
+  }
+  return cnt[p];
+}
+
+void solve()
+{
+  idx=0;
+  cin>>n>>q;
+  for(int i=1;i<=n;i++)
+  {
+    cin>>s;
+    insert(s);
+  }
+  while(q--)
+  {
+    cin>>s;
+    cout<<query(s)<<endl;
+  }
+  for(int i=0;i<=idx;i++)
+  {
+    for(int j=0;j<=65;j++)
+    {
+      ch[i][j]=0;
+    }
+  }
+  for(int i=0;i<=idx;i++)
+  {
+    cnt[i]=0;
+  }
+}
+
+int main(){
     ios::sync_with_stdio(false);
     cin.tie(0);
-    int T;
-    cin >> T;
-    Trie t;
-    while (T--) {
-        t.clear();
-        int n, q;
-        cin >> n >> q;
-        string s;
-        for (int i = 0; i < n; i++) { cin >> s; t.insert(s); }
-        while (q--) { cin >> s; cout << t.prefixCount(s) << '\n'; }
+    cout.tie(0);
+    
+    cin>>_T;
+    while(_T--)
+    {
+      solve();
     }
+
     return 0;
 }

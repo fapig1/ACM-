@@ -1,36 +1,69 @@
 #include <bits/stdc++.h>
+#define int long long
+#define endl '\n'
 using namespace std;
 
-// 【速查】染色法判二分图（BFS，非递归）
-// 用法: vector<vector<int>> g(n + 1);  建双向边;   vector<int> color;  bool ok = isBipartite(n, g, color);
-// 结果: ok 时 color[i] ∈ {1, 2} 是两侧的划分（每个连通块独立染色）
-// 复杂度: O(n + m)；点 1-based
-bool isBipartite(int n, const vector<vector<int>>& g, vector<int>& color) {
-    color.assign(n + 1, 0);
-    for (int s = 1; s <= n; s++) {
-        if (color[s]) continue;
-        color[s] = 1;
-        vector<int> q = {s};
-        for (size_t i = 0; i < q.size(); i++) {
-            int u = q[i];
-            for (int v : g[u]) {
-                if (!color[v]) { color[v] = 3 - color[u]; q.push_back(v); }
-                else if (color[v] == color[u]) return false;
-            }
-        }
+const int N=1e5+10;
+int t,n,m;
+vector<int> arr[N];
+int color[N];// 1 / 2
+// 【速查】染色法判二分图
+// 用法: 建双向边；对每个未染色的点 dfs(i, 1)，有一次返回 false 就不是二分图
+// 结果: color[i] 为 1/2，即两侧的划分
+// 复杂度: O(n + m)；递归，深链注意爆栈
+//染色法判定二分图
+bool dfs(int u,int c)
+{
+  color[u]=c;
+  for(auto x:arr[u])
+  {
+    if(!color[x])
+    {
+      if(!dfs(x,3-c)) return 0;
     }
-    return true;
+    else if(color[x]&&color[x]!=3-c)
+    {
+      return 0;
+    }
+  }
+  return 1;
 }
 
-// 示例: 读 n m 和 m 条无向边，输出 Yes / No
-int main() {
+signed main()
+{
     ios::sync_with_stdio(false);
     cin.tie(0);
-    int n, m;
-    cin >> n >> m;
-    vector<vector<int>> g(n + 1);
-    for (int i = 0; i < m; i++) { int u, v; cin >> u >> v; g[u].push_back(v); g[v].push_back(u); }
-    vector<int> color;
-    cout << (isBipartite(n, g, color) ? "Yes" : "No") << '\n';
+    cout.tie(0);
+    
+    cin>>n>>m;
+    for(int i=1;i<=m;i++)
+    {
+      int u,v;
+      cin>>u>>v;
+      arr[u].push_back(v);
+      arr[v].push_back(u);
+    }
+    int flag=0;
+    for(int i=1;i<=n;i++)
+    {
+      if(!color[i])
+      {
+        if(!dfs(i,1))
+        {
+          flag=1;
+          break;
+        }
+      }
+    }
+    if(flag)
+    {
+      cout<<"No"<<endl;
+    }
+    else
+    {
+      cout<<"Yes"<<endl;
+    }
+
+
     return 0;
 }

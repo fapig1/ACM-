@@ -1,35 +1,67 @@
 #include <bits/stdc++.h>
+#define int long long
+#define endl '\n'
 using namespace std;
-using ll = long long;
 
+const int N=2e5+10;
+int t,n,m,res,cnt;
+int fa[N];
 // 【速查】Kruskal 最小生成树
-// 用法: vector<array<ll,3>> edges;  edges.push_back({w, u, v});   // 注意边权放第一个，方便直接 sort
-//       ll res; bool ok = kruskal(n, edges, res);   // ok = false 表示图不连通；点 1-based
-// 复杂度: O(m log m)，稀疏图首选；最大生成树把 sort 改成降序
-bool kruskal(int n, vector<array<ll, 3>> edges, ll& res) {
-    sort(edges.begin(), edges.end());
-    vector<int> fa(n + 1);
-    iota(fa.begin(), fa.end(), 0);
-    auto find = [&](int x) { while (fa[x] != x) x = fa[x] = fa[fa[x]]; return x; };
-    res = 0;
-    int cnt = 0;
-    for (auto& [w, u, v] : edges) {
-        int a = find(u), b = find(v);
-        if (a != b) { fa[a] = b; res += w; cnt++; }
-    }
-    return cnt == n - 1;
+// 用法: 读 e[1..m] = {a, b, w}，sort 后用并查集从小到大加边
+// 结果: res = MST 权值和；cnt < n-1 说明图不连通（输出 impossible）
+// 复杂度: O(m log m)，稀疏图首选
+//Kruskal算法求最小生成树
+struct edge
+{
+  int a,b,w;
+  bool operator<(edge& x)
+  {
+    return w<x.w;
+  }
+}e[N];
+
+int find(int u)
+{
+  if(u!=fa[u])
+  {
+    fa[u]=find(fa[u]);
+  }
+  return fa[u];
 }
 
-// 示例: 读 n m 和 m 条边 (a b w)，输出 MST 权值和，不连通输出 impossible
-int main() {
+signed main()
+{
     ios::sync_with_stdio(false);
     cin.tie(0);
-    int n, m;
-    cin >> n >> m;
-    vector<array<ll, 3>> edges(m);
-    for (auto& [w, u, v] : edges) cin >> u >> v >> w;
-    ll res;
-    if (!kruskal(n, edges, res)) cout << "impossible" << '\n';
-    else cout << res << '\n';
+    cout.tie(0);
+    
+    cin>>n>>m;
+    for(int i=1;i<=m;i++)
+    {
+      cin>>e[i].a>>e[i].b>>e[i].w;
+    }
+    sort(e+1,e+m+1);
+    for(int i=1;i<=n;i++)
+    {
+      fa[i]=i;
+    }
+    for(int i=1;i<=m;i++)
+    {
+      int a=e[i].a,b=e[i].b,w=e[i].w;
+      a=find(a),b=find(b);
+      if(a!=b)
+      {
+        res+=w;
+        fa[a]=b;
+        cnt++;
+      }
+    }
+    if(cnt<n-1)
+    {
+      cout<<"impossible"<<endl;
+    }
+    else  cout<<res<<endl;
+    
+
     return 0;
 }

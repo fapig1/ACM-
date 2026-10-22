@@ -1,39 +1,68 @@
 #include <bits/stdc++.h>
+#define int long long
+#define endl '\n'
 using namespace std;
-using ll = long long;
 
+const int N = 1e5 + 5;
+const int mod = 80112002;
+int n, m, s;
+int x, y, z;
+vector<pair<int, int>>g[N];
+int dist[N];
+bool st[N];
 // 【速查】SPFA 单源最短路（可有负边，无负环）
-// 用法: vector<vector<pair<int,ll>>> g(n + 1);  g[u].push_back({v, w});   // 点 1-based
-//       auto d = spfa(n, g, s);   // d[v] = s 到 v 的最短路，到不了为 SPFA_INF
+// 用法: g[x].push_back({y, w}); spfa()
+// 返回: 1 到 n 的最短路，到不了返回 0x3f3f3f3f3f3f3f3f；dist[] 是到所有点的距离
 // 复杂度: 一般很快，最坏 O(nm)（会被卡）；没有负边请用 Dijkstra
-const ll SPFA_INF = LLONG_MAX / 4;
-vector<ll> spfa(int n, const vector<vector<pair<int, ll>>>& g, int s) {
-    vector<ll> d(n + 1, SPFA_INF);
-    vector<char> inq(n + 1, 0);
+//spfa求最短路
+int spfa()
+{
+    memset(dist, 0x3f, sizeof dist);
+    dist[1] = 0;
     queue<int> q;
-    d[s] = 0; q.push(s); inq[s] = 1;
-    while (!q.empty()) {
-        int u = q.front(); q.pop(); inq[u] = 0;
-        for (auto [v, w] : g[u]) {
-            if (d[u] + w < d[v]) {
-                d[v] = d[u] + w;
-                if (!inq[v]) { inq[v] = 1; q.push(v); }
+    q.push(1);
+    st[1]=true;
+    while (!q.empty())
+    {
+        auto t = q.front();
+        q.pop();
+        st[t] = false;
+        for (int i = 0; i < g[t].size(); i++)
+        {
+            if (dist[g[t][i].first] > dist[t] + g[t][i].second)
+            {
+                dist[g[t][i].first] = dist[t] + g[t][i].second;
+                if (!st[g[t][i].first])
+                {
+                    q.push(g[t][i].first);
+                    st[g[t][i].first] = true;
+                }
             }
         }
     }
-    return d;
+
+    if (dist[n] == 0x3f3f3f3f3f3f3f3f) return 0x3f3f3f3f3f3f3f3f;
+    else
+        return dist[n];
 }
 
-// 示例: 读 n m 和 m 条边，输出 1 到 n 的最短路，到不了输出 impossible
-int main() {
+signed main() {
     ios::sync_with_stdio(false);
     cin.tie(0);
-    int n, m;
+    cout.tie(0);
+
     cin >> n >> m;
-    vector<vector<pair<int, ll>>> g(n + 1);
-    for (int i = 0; i < m; i++) { int u, v; ll w; cin >> u >> v >> w; g[u].push_back({v, w}); }
-    auto d = spfa(n, g, 1);
-    if (d[n] >= SPFA_INF) cout << "impossible" << '\n';
-    else cout << d[n] << '\n';
+    for (int i = 1; i <= m; i++)
+    {
+        cin >> x >> y >> z;
+        g[x].push_back({ y,z });
+    }
+    int res;
+    res = spfa();
+    if (res == 0x3f3f3f3f3f3f3f3f)
+        cout << "impossible" << endl;
+    else
+        cout << res << endl;
+
     return 0;
 }

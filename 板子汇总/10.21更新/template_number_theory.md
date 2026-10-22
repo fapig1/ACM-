@@ -17,69 +17,109 @@ using namespace std;
 
 ### 排列组合
 
-> 【本次修复】Derangement 递推 (n-1)→(i-1) 并补 return（原版为 UB）；D(0)=1。C/A 越界（m<0 或 m>n）返回 0。
+> 【本次修复】Derangement 递推 (n-1)→(i-1) 并补 return（原版为 UB）；D(0)=1。注意 C/A 无越界检查（n≤maxn）。
 > 注释补充：A/C 的取模前提、错排递推的组合解释与通项、卡特兰数的计数对象与递推。
-> 【10.22 结构体封装】原全局变量 + 全局函数改为结构体 / 传参函数，用法见块内速查卡。
 
 ```cpp
-using ll = long long;
+#define int long long
 
 // ============================== 排列组合 ==============================
-// 内容: 阶乘 / 阶乘逆元预处理，O(1) 求排列数 A(n,m)、组合数 C(n,m)，以及错排数、卡特兰数。
+// 内容: 阶乘/阶乘逆元预处理，O(1) 求排列数 A(n,m)、组合数 C(n,m)，以及错排数、卡特兰数。
+// 复杂度: init() 为 O(maxn)，之后 A/C 单次 O(1)；Derangement/Catalan 为 O(n)。
 // 前提与注意:
-//   1) mod 必须是质数，且所有阶乘下标 < mod，费马小定理求逆元才成立；
-//   2) n >= mod 时 n! 含因子 mod 变成 0，必须改用 Lucas（见 数论进阶.cpp）；
-//   3) 多组数据只构造一次即可；fac / ifac 各占 8 字节 / 项。
-// 组合恒等式（帕斯卡、范德蒙德、曲棍球棒等）的证明与验算见 数论恒等式速查。
-// 10.22: 原版是全局 fac / inv 数组 + init()，已封装为结构体，并让 A / C 越界时返回 0
+//   1) mod = 1e9+7 是质数，且所有阶乘下标均 < mod，费马小定理求逆元才成立；
+//   2) A/C 不做越界检查，调用前保证 0 <= m <= n <= maxn；
+//   3) 若 n >= mod，n! 中会出现因子 mod 使阶乘为 0，必须改用 Lucas（见 数论进阶.cpp）；
+//   4) 多组数据只调用一次 init() 即可；maxn 按题目上限设置，fac/inv 各占 8 字节/项。
+// 组合恒等式（帕斯卡、范德蒙德、曲棍球棒等）的证明与验算见 数论恒等式.md。
 
-// 【速查】组合数学工具 Comb：阶乘逆元 → C(n,m)、A(n,m)、错排、卡特兰（模质数）
-// 用法: Comb cb(上限 N, mod);   // 预处理 0..N 的阶乘与逆元
-//       cb.C(n, m)  cb.A(n, m)   // m < 0 或 m > n 返回 0；要求 n <= N
-//       cb.catalan(n)            // 要求 2n <= N
-//       Comb::derangement(n, mod) // 错排数 D(n)，不需要预处理
-// 复杂度: 预处理 O(N)，C / A / catalan O(1)，derangement O(n)
-struct Comb {
-    ll mod;
-    vector<ll> fac, ifac;
+const int mod = 1e9 + 7;
+const int maxn = 2e5;
 
-    static ll qpow(ll a, ll b, ll m) {
-        ll r = 1 % m; a %= m;
-        for (; b; b >>= 1, a = a * a % m) if (b & 1) r = r * a % m;
-        return r;
+// fac[i] = i! mod
+// inv[i] = (i!)^{-1} mod：先对 maxn! 用一次费马小定理，再倒推所有阶乘逆元
+vector<int> fac(maxn + 5), inv(maxn + 5);
+
+// 快速幂: 计算 x^a mod m，O(log a)
+int ksm(int x, int a, int mod){
+    int ans = 1;
+    while(a){
+        if(a & 1) ans = ans * x % mod;
+        x = x * x % mod;
+        a >>= 1;
     }
-    Comb(int N, ll mod = 1000000007) : mod(mod), fac(N + 1), ifac(N + 1) {
-        fac[0] = 1;
-        for (int i = 1; i <= N; i++) fac[i] = fac[i - 1] * i % mod;
-        ifac[N] = qpow(fac[N], mod - 2, mod);            // 费马小定理: (N!)^(mod-2)
-        for (int i = N; i > 0; i--) ifac[i - 1] = ifac[i] * i % mod;   // (i-1)!^-1 = i!^-1 * i
+    return ans;
+}
+
+// 【速查】阶乘 + 逆元阶乘 → 组合数 C(n,m)、排列数 A(n,m)（模质数）
+// 用法: 先 init()（预处理到 maxn）；C(n, m)、A(n, m) 直接 O(1) 查
+// 注意: 不检查越界，m < 0 或 m > n 时请自己先返回 0；n ≤ maxn
+// 复杂度: 预处理 O(maxn)，查询 O(1)
+// 预处理阶乘与阶乘逆元；使用 A/C 前必须调用一次
+void init(){
+    fac[0] = 1;
+    for(int i = 1; i <= maxn; i++){
+        fac[i] = fac[i - 1] * i % mod;
     }
-    // 排列数 A(n,m) = n!/(n-m)!：从 n 个不同元素中有序取 m 个
-    ll A(int n, int m) { return (m < 0 || m > n) ? 0 : fac[n] * ifac[n - m] % mod; }
-    // 组合数 C(n,m) = n!/(m!(n-m)!)：从 n 个不同元素中无序取 m 个
-    ll C(int n, int m) { return (m < 0 || m > n) ? 0 : fac[n] * ifac[m] % mod * ifac[n - m] % mod; }
-
-    // 卡特兰数 Cat(n) = C(2n,n) - C(2n,n+1) = C(2n,n)/(n+1)
-    // 计数对象（都满足 Cat(n) = Σ_{i=0}^{n-1} Cat(i)Cat(n-1-i)）:
-    //   n 对括号的合法序列 / n 个结点的二叉树形态 / 凸 (n+2) 边形三角剖分 /
-    //   1..n 依次入栈的出栈序列 / (0,0) 到 (n,n) 不越过对角线的单调路径
-    ll catalan(int n) { return ((C(2 * n, n) - C(2 * n, n + 1)) % mod + mod) % mod; }
-
-    // 错排数 D(n)：1..n 的排列中 p_i != i 的个数；D(0)=1、D(1)=0
-    // 递推: D(n) = (n-1)(D(n-1) + D(n-2))——元素 n 放到位置 k（n-1 种），
-    //       若 k 也放到位置 n 剩下 n-2 个错排（D(n-2)），否则相当于 n-1 个错排（D(n-1)）
-    // 通项: D(n) = n! · Σ_{k=0}^{n} (-1)^k / k!
-    static ll derangement(int n, ll mod = 1000000007) {
-        if (n == 0) return 1;
-        ll a = 1, b = 0;                         // D(0), D(1)
-        for (int i = 2; i <= n; i++) { ll c = (ll)(i - 1) % mod * ((a + b) % mod) % mod; a = b; b = c; }
-        return b;
+    inv[maxn] = ksm(fac[maxn], mod - 2, mod);          // 费马小定理: (maxn!)^(mod-2)
+    for(int i = maxn - 1; i >= 0; i--){
+        inv[i] = inv[i + 1] * (i + 1) % mod;           // (i!)^-1 = ((i+1)!)^-1 * (i+1)
     }
-};
+}
 
-// 范德蒙德卷积（证明与变形见 数论恒等式速查 第 9 节）:
+// 排列数 A(n,m) = n!/(n-m)!：从 n 个不同元素中有序取 m 个
+int A(int n, int m){
+    return fac[n] * inv[n - m] % mod;
+}
+
+// 组合数 C(n,m) = n!/(m!(n-m)!)：从 n 个不同元素中无序取 m 个
+int C(int n, int m){
+    return fac[n] * inv[m] % mod * inv[n - m] % mod;
+}
+
+// 【速查】错排数 D(n)：n 个元素都不在原位的排列数
+// 用法: Derangement(n)；递推 D(n) = (n-1)(D(n-1) + D(n-2))，D(0)=1, D(1)=0
+// 复杂度: O(n)
+// 错排数 D(n)：1..n 的排列中满足 p_i != i 的排列个数
+// 约定 D(0)=1（空排列算一种）、D(1)=0、D(2)=1
+// 递推: D(n) = (n-1) * (D(n-1) + D(n-2))
+// 理解: 先放元素 n 到位置 k（n-1 种选法）；
+//       若 k 恰好放到位置 n，剩下 n-2 个元素错排，贡献 D(n-2)；
+//       否则把位置 n 视为“不能放 k”，剩下 n-1 个元素构成错排，贡献 D(n-1)。
+// 通项: D(n) = n! * Σ_{k=0}^{n} (-1)^k / k!（见 数论恒等式.md）
+int Derangement(int n){
+    vector<int> dp(n + 1);
+    dp[0] = 1;
+    if(n >= 1) dp[1] = 0;
+    if(n >= 2) dp[2] = 1;
+    for(int i = 3; i <= n; i++){
+        dp[i] = (i - 1) * (dp[i - 1] + dp[i - 2]) % mod;
+    }
+    return dp[n];
+}
+
+// 【速查】卡特兰数 Cat(n) = C(2n, n) - C(2n, n+1)
+// 用途: 合法括号序列 / 二叉树形态 / 出栈序列 / 不越过对角线的路径 / 凸多边形三角剖分
+// 用法: 先 init()；CatalanNumber(n)，要求 2n ≤ maxn
+// 复杂度: O(1)
+// 卡特兰数 Cat(n) = C(2n,n)/(n+1) = C(2n,n) - C(2n,n-1)
+// 计数对象（都满足同一递推 Cat(n) = Σ_{i=0}^{n-1} Cat(i)Cat(n-1-i)）:
+//   * n 对括号的合法序列数；
+//   * n 个结点的不同二叉树形态数；
+//   * 凸 (n+2) 边形的三角剖分数；
+//   * 1..n 依次入栈的合法出栈序列数；
+//   * 从 (0,0) 到 (n,n) 且不越过对角线 y=x 的单调路径数。
+// 注意: 减法可能得到负数，最后统一调整到 [0, mod)
+int CatalanNumber(int n){
+    if(n == 0) return 1;            // 10.22 修复: 原版 C(0, 1) 读 inv[-1]
+    int ans = C(2 * n, n) - C(2 * n, n + 1);
+    return (ans % mod + mod) % mod;
+}
+
+// 范德蒙德卷积（证明与变形见 数论恒等式.md 第 9 节）:
 //   Σ_{k=0}^{n} C(r,k) * C(s,n-k) = C(r+s,n)
-// 需要时直接枚举 k 累加即可；前提是 r+s <= N 且 r,s < mod。
+// 需要时直接枚举 k 累加即可；前提是 r+s <= maxn 且 r,s < mod。
+// 若 r+s >= mod，阶乘会出现 0，C 失效，请改用 Lucas（数论进阶.cpp）。
 ```
 
 ### 数论基础
@@ -87,7 +127,6 @@ struct Comb {
 > 【本次修复】main 由 2^50 分配的坏示例改为 16 掩码自检示例；并纠正 SOSDP 注释（该循环算的是子集和/FWT-or 方向，非超集和）。含线性筛全家桶/EXGCD/CRT/EXCRT/类欧几里得全套/NTT/FFT/FWT/康托展开(注意 fact 只到 9!)/整除分块。
 > 【10.22 修复】CRT、excrt 中间乘法改用 __int128（原版 CRT 在模数乘积 > 约 3e9、excrt 在 m[i]/gcd > 约 3e9 时溢出出错）。
 > 注释补充：欧拉筛只被最小质因子筛一次、线性筛各数组的转移、exgcd 通解、CRT 互质前提、exCRT 合并与溢出、杜教筛下标变换、类欧的递推及取模/上取整/负数/区间/三合一变式与溢出边界。
-> 【10.22 结构体封装】原全局变量 + 全局函数改为结构体 / 传参函数，用法见块内速查卡。
 
 ```cpp
 #define int long long
@@ -98,72 +137,146 @@ struct Comb {
 //       康托展开、FFT/NTT、多项式求逆、FWT、整除分块、杜教筛、类欧几里得、SOSDP。
 // 约定:
 //   * 本文件用 #define int long long，所有 int 均为 64 位；与自带 int 的代码拼接时注意。
-//   * 筛法封装在 Sieve 结构体里（Sieve sv(n)），质数表是 sv.primes，不再有全局 primes；
-//     狄利克雷变换等需要质数表的函数显式传入 sv.primes。
+//   * 全局数组按 maxn = 1e6 开；linear_sieve 的内存约为 6 个 long long 数组，按题目缩小 maxn。
+//   * init 与 linear_sieve 都会向全局 primes 里 push，二者不要混用（否则质数表重复）。
 //   * 模数统一用全局 mod = 1e9+7；NTT 单独使用 NTT_MOD = 998244353。
 //   * 类欧的公式与变式推导见 数论恒等式.md 第 14 节。
 // =====================================================================
 
+//欧拉筛
 const int mod = 1e9 + 7;
+const int maxn = 1e6;
+vector<int> primes;
+// 欧拉筛（线性筛）: O(maxn) 求出每个数的最小质因子 min_primes[i]，同时得到全局质数表 primes。
+// 原理: 每个合数只被它的最小质因子筛掉一次，因此总复杂度是线性的。
+// 注意: 只筛到 maxn，getPrimes(x) 要求 x <= maxn；x = 0 或 1 时 min_primes 无效。
+int min_primes[maxn + 5];
+// 【速查】欧拉筛（线性筛质数 + 最小质因子）
+// 用法: init() 后 primes 是 ≤ maxn 的质数表，min_primes[x] 是 x 的最小质因子
+// 复杂度: O(maxn)；和 linear_sieve 二选一（都会往 primes 里 push）
+void init(){
+    for(int i = 2; i <= maxn; i++){
+        if(!min_primes[i]){
+            min_primes[i] = i;
+            primes.push_back(i);
+        }
+        for(int p : primes){
+            if(p > min_primes[i] || i * p > maxn) break;
+            min_primes[i * p] = p;
+        }
+    }
+}
+// 【速查】用最小质因子表 O(log x) 分解质因数
+// 用法: 先 init()；getPrimes(x) -> 不同质因子（升序）；getPrimesCnt(x) -> {质因子, 次数}
+// 要求 x ≤ maxn；更大的数用试除 O(√x) 或 Pollard-Rho（数论进阶）
+// 分解质因数（不重复）: 返回 x 的所有不同质因子，升序，O(log x)
+// 依赖 init() 先筛出 min_primes；x 必须 <= maxn。
+vector<int> getPrimes(int x){
+    vector<int> res;
+    while(x > 1){
+        int p = min_primes[x];
+        res.push_back(p);
+        while(x % p == 0) x /= p;
+    }
+    return res;
+}
+// 分解质因数（带指数）: 返回 {(p, cnt)}，满足 x = ∏ p^cnt，升序，O(log x)
+// 例: 360 = 2^3 * 3^2 * 5 -> {(2,3),(3,2),(5,1)}
+vector<pair<int,int>> getPrimesCnt(int x){
+    vector<pair<int,int>> res;
+    while(x > 1){
+        int p = min_primes[x];
+        int cnt = 0;
+        while(x % p == 0){
+            x /= p;
+            cnt++;
+        }
+        res.push_back({p, cnt});
+    }
+    return res;
+}
 
-// 【速查】线性筛全家桶 Sieve：质数表、最小质因子、μ、φ、约数个数 τ、约数和 σ
-// 用法: Sieve sv(n);   // 一次 O(n) 筛出 1..n 的全部信息
-//       sv.primes（<= n 的质数，升序）  sv.minp[x]  sv.mu[x]  sv.phi[x]  sv.dcnt[x]（τ）  sv.dsum[x]（σ）
-//       sv.factor(x) -> {(p, 次数)}，sv.distinctPrimes(x) -> 不同质因子；都要求 2 <= x <= n，O(log x)
-// 复杂度: O(n)；数组用 int32，n = 1e7 时约 280MB，按需删掉不用的数组
-// 10.22: 原版是全局数组 + init() / linear_sieve() 两个函数共用一个全局 primes（混用会重复），已合并为结构体
-// 原理: 设 i 的最小质因子为 q，枚举质数 p 去筛 m = i*p：
-//   p < q  : p 与 i 互质，积性函数直接相乘
-//   p == q : p 是 m 的最小质因子，指数 +1，按"去掉一个 p"的商修正，然后 break
-//   每个合数只在其最小质因子处被筛一次，故总复杂度 O(n)
-struct Sieve {
-    int n;
-    vector<int> primes;
-    vector<int32_t> minp, mu, phi, dcnt, dsum, mexp, mpw;   // mexp: 最小质因子的指数；mpw: 1 + p + ... + p^mexp
 
-    Sieve(int n) : n(n), minp(n + 1, 0), mu(n + 1, 0), phi(n + 1, 0), dcnt(n + 1, 0), dsum(n + 1, 0), mexp(n + 1, 0), mpw(n + 1, 0) {
-        if (n >= 1) { mu[1] = 1; phi[1] = 1; dcnt[1] = 1; dsum[1] = 1; }
-        for (int i = 2; i <= n; i++) {
-            if (!minp[i]) {
-                minp[i] = i; primes.push_back(i);
-                mu[i] = -1; phi[i] = i - 1; dcnt[i] = 2; dsum[i] = i + 1; mexp[i] = 1; mpw[i] = i + 1;
-            }
-            for (int p : primes) {
-                if (p > minp[i] || i * p > n) break;
-                int m = i * p;
-                minp[m] = p;
-                if (p == minp[i]) {
-                    mu[m] = 0;
-                    phi[m] = phi[i] * p;
-                    mexp[m] = mexp[i] + 1;
-                    mpw[m] = mpw[i] * p + 1;
-                    dcnt[m] = dcnt[i] / (mexp[i] + 1) * (mexp[m] + 1);
-                    dsum[m] = dsum[i] / mpw[i] * mpw[m];
-                } else {
-                    mu[m] = -mu[i];
-                    phi[m] = phi[i] * (p - 1);
-                    mexp[m] = 1; mpw[m] = p + 1;
-                    dcnt[m] = dcnt[i] * 2;
-                    dsum[m] = dsum[i] * (p + 1);
-                }
+// 线性筛综合版：质数表 + 最小质因子（is_comp/minp_exp）+ 莫比乌斯函数 + 欧拉函数
+//              + 约数个数 + 约数和，全部 O(n)。
+// 调用 linear_sieve(n) 后直接使用全局数组；n 可以小于 maxn。
+//
+// 设 i 的最小质因子为 q（由质数表从小到大枚举隐式确定），枚举质数 p 去筛 m = i*p：
+//   p < q  : p 与 i 互质，各积性函数直接相乘
+//   p == q : p 是 m 的最小质因子，指数 +1，按“去掉一个 p”的商修正
+// 每个合数只在其最小质因子处被筛一次，故总复杂度 O(n)。
+//
+// 各数组含义:
+//   mu[i]        莫比乌斯函数 μ(i)
+//   phi_arr[i]   欧拉函数 φ(i)
+//   div_cnt[i]   约数个数 τ(i)
+//   div_sum[i]   约数和 σ(i)
+//   minp_exp[i]  i 的最小质因子指数
+//   minp_pwsum[i] 1 + p + ... + p^e（p 为最小质因子，e = minp_exp[i]）
+//
+// 注意: primes 是全局共享的，若之前调用过 init() 会重复；本函数假定 primes 为空。
+bool is_comp[maxn + 5];
+int mu[maxn + 5];          // 莫比乌斯函数
+int phi_arr[maxn + 5];     // 欧拉函数
+int div_cnt[maxn + 5];     // 约数个数
+int div_sum[maxn + 5];     // 约数和
+int minp_exp[maxn + 5];    // 最小质因子的指数
+int minp_pwsum[maxn + 5];  // 1 + p + p^2 + ... + p^(最小质因子指数)
+
+// 【速查】线性筛全家桶：μ、φ、约数个数 τ、约数和 σ
+// 用法: linear_sieve(n) 后直接用全局数组 mu[] phi_arr[] div_cnt[] div_sum[]（以及 primes）
+// 复杂度: O(n)；n ≤ maxn(1e6)，更大请调 maxn 并注意内存（6 个 long long 数组）
+void linear_sieve(int n){
+    mu[1] = 1; phi_arr[1] = 1; div_cnt[1] = 1; div_sum[1] = 1;
+    for(int i = 2; i <= n; i++){
+        if(!is_comp[i]){
+            primes.push_back(i);
+            mu[i] = -1;
+            phi_arr[i] = i - 1;
+            div_cnt[i] = 2;
+            div_sum[i] = i + 1;
+            minp_exp[i] = 1;
+            minp_pwsum[i] = i + 1;
+        }
+        for(int p : primes){
+            int m = i * p;
+            if(m > n) break;
+            is_comp[m] = true;
+            if(i % p == 0){
+                mu[m] = 0;
+                phi_arr[m] = phi_arr[i] * p;
+                minp_exp[m] = minp_exp[i] + 1;
+                minp_pwsum[m] = minp_pwsum[i] * p + 1;
+                div_cnt[m] = div_cnt[i] / (minp_exp[i] + 1) * (minp_exp[m] + 1);
+                div_sum[m] = div_sum[i] / minp_pwsum[i] * minp_pwsum[m];
+                break;
+            }else{
+                mu[m] = -mu[i];
+                phi_arr[m] = phi_arr[i] * (p - 1);
+                minp_exp[m] = 1;
+                minp_pwsum[m] = p + 1;
+                div_cnt[m] = div_cnt[i] * 2;
+                div_sum[m] = div_sum[i] * (p + 1);
             }
         }
     }
-    vector<pair<int, int>> factor(int x) {
-        vector<pair<int, int>> res;
-        while (x > 1) {
-            int p = minp[x], c = 0;
-            while (x % p == 0) x /= p, c++;
-            res.push_back({p, c});
-        }
-        return res;
-    }
-    vector<int> distinctPrimes(int x) {
-        vector<int> res;
-        for (auto [p, c] : factor(x)) res.push_back(p);
-        return res;
-    }
-};
+}
+
+
+// 旧欧拉筛单独函数
+// void init(){
+//     vector<bool> nop(maxn + 5);
+//     nop[0] = nop[1] = true;
+//     for(int i = 2; i <= maxn; i++){
+//         if(!nop[i]){
+//             primes.push_back(i);
+//             if(i > sqrt(maxn)) continue;
+//             for(int j = i * i; j <= maxn; j++){
+//                 nop[j] = true;
+//             }
+//         }
+//     }
+// }
 
 
 // 【速查】快速幂 x^a mod m
@@ -264,7 +377,7 @@ int excrt(vector<int> m, vector<int> a, int n){
 }
 
 // 【速查】单个数的欧拉函数 φ(n)（1..n 中与 n 互质的个数）
-// 用法: oula_phi(n)；要很多个 φ 就用 sieve_phi / Sieve
+// 用法: oula_phi(n)；要很多个 φ 就用 sieve_phi / linear_sieve
 // 复杂度: O(√n)
 // 单个数欧拉函数 φ(n)，O(√n)
 // 公式: φ(n) = n * ∏_{p|n} (1 - 1/p)，边分解边乘，避免除法丢精度。
@@ -282,10 +395,10 @@ int oula_phi(int n){
 }
 
 // 【速查】线性筛求 φ(1..n)
-// 用法: auto phi = sieve_phi(n);  phi[i] = φ(i)
+// 用法: auto phi = sieve_phi(n);  phi[i] = φ(i)；不碰全局 primes
 // 复杂度: O(n)
 // 筛法求欧拉函数（线性筛）: 返回长度为 n+1 的 phi 数组，phi[i] = φ(i)，O(n)。
-// 与 Sieve 的区别: 只求 φ，返回一个数组，更轻量。
+// 与 linear_sieve 的区别: 这里只需要 φ，函数内部自带局部质数表，不污染全局 primes。
 // 转移同样按 i % p 分两类:
 //   p | i     : p 已是 i 的质因子，φ(i*p) = φ(i) * p
 //   p ∤ i     : p 是新质因子，φ(i*p) = φ(i) * (p-1)
@@ -319,7 +432,7 @@ vector<int> sieve_phi(int n) {
     return phi;
 }
 
-// 莫比乌斯反演（μ、φ 由 Sieve 预处理）
+// 莫比乌斯反演（μ 由 linear_sieve 预处理，φ 同）
 // 约数形式: g(n) = Σ_{d|n} f(d)  <=>  f(n) = Σ_{d|n} μ(d) * g(n/d)
 // 倍数形式: g(n) = Σ_{n|d} f(d)  <=>  f(n) = Σ_{n|d} μ(d/n) * g(d)
 // 记忆: 反演就是“卷上 μ”，因为 μ * 1 = ε。
@@ -331,7 +444,7 @@ vector<int> sieve_phi(int n) {
 // 完整恒等式表与证明见 数论恒等式.md 第 3~5 节。
 
 // 狄利克雷前缀/后缀变换（快速 zeta 变换），O(n log log n)
-// 前置: 传入的 primes 必须包含所有 <= n 的质数（用 Sieve(n).primes）。
+// 前置: primes 必须包含所有 <= n 的质数（调用 init() 或 linear_sieve(n) 均可）。
 // 原理: 对每个质数 p 做一遍类似“高维前缀和”的扫描，枚举顺序保证每个数被其全部质因子更新。
 // 注意:
 //   1) 全部原地修改，需要保留原数组请先拷贝；
@@ -339,47 +452,47 @@ vector<int> sieve_phi(int n) {
 //   3) 下标从 1 开始使用，f[0] 不参与运算。
 
 // 【速查】狄利克雷前缀/后缀和（按约数/倍数做"高维前缀和"）
-// 用法: Sieve sv(n);  dirichlet_prefix_sum(f, n, sv.primes);   // f 为 1-based 数组，原地变换
+// 用法: 先有 primes（init 或 linear_sieve）；f 为 1-based 数组，原地变换
 //   prefix_sum: f[n] ← Σ_{d|n} f[d]     suffix_sum: f[d] ← Σ_{d|n} f[n]
 //   prefix_max / prefix_min 同理取最值；prefix_inv / suffix_inv 是逆变换（相当于卷 μ）
 // 复杂度: O(n log log n)
 // 前缀和: 变换后 f[n] = Σ_{d|n} f[d]
-void dirichlet_prefix_sum(vector<int>& f, int n, const vector<int>& primes){
+void dirichlet_prefix_sum(vector<int>& f, int n){
     for(int p : primes)
         for(int i = 1; i * p <= n; i++)
             f[i * p] += f[i];
 }
 
 // 后缀和: 变换后 f[d] = Σ_{d|n} f[n]
-void dirichlet_suffix_sum(vector<int>& f, int n, const vector<int>& primes){
+void dirichlet_suffix_sum(vector<int>& f, int n){
     for(int p : primes)
         for(int i = n / p; i >= 1; i--)
             f[i] += f[i * p];
 }
 
 // 前缀最值: 变换后 f[n] = max_{d|n} f[d]
-void dirichlet_prefix_max(vector<int>& f, int n, const vector<int>& primes){
+void dirichlet_prefix_max(vector<int>& f, int n){
     for(int p : primes)
         for(int i = 1; i * p <= n; i++)
             f[i * p] = max(f[i * p], f[i]);
 }
 
 // 前缀最值: 变换后 f[n] = min_{d|n} f[d]
-void dirichlet_prefix_min(vector<int>& f, int n, const vector<int>& primes){
+void dirichlet_prefix_min(vector<int>& f, int n){
     for(int p : primes)
         for(int i = 1; i * p <= n; i++)
             f[i * p] = min(f[i * p], f[i]);
 }
 
 // 前缀和的逆变换: 已知 g[n] = Σ_{d|n} f[d]，由 g 还原 f
-void dirichlet_prefix_inv(vector<int>& f, int n, const vector<int>& primes){
+void dirichlet_prefix_inv(vector<int>& f, int n){
     for(int p : primes)
         for(int i = n / p; i >= 1; i--)
             f[i * p] -= f[i];
 }
 
 // 后缀和的逆变换: 已知 g[d] = Σ_{d|n} f[n]，由 g 还原 f
-void dirichlet_suffix_inv(vector<int>& f, int n, const vector<int>& primes){
+void dirichlet_suffix_inv(vector<int>& f, int n){
     for(int p : primes)
         for(int i = 1; i * p <= n; i++)
             f[i] -= f[i * p];
@@ -1139,7 +1252,6 @@ signed main() {
 > Miller-Rabin/Pollard-Rho/字符串指数欧拉降幂/BSGS/卢卡斯/EX卢卡斯/Cipolla/原根。
 > 【10.22 修复】BSGS 改为返回最小解（原版同值保留最小 j，结果偏大）并全程用 mul 防溢出，exBSGS 随之修正；Min_25 修复 n<4 时对空 primes 调 back() 的 UB。
 > 注释补充：Miller-Rabin 的 d·2^s 分解与确定底数、Pollard-Rho 的期望复杂度、扩展欧拉定理的分段条件、exBSGS 的消因子流程、Lucas/exLucas 的模数限制、Cipolla 的期望尝试次数、Min_25 的复杂度与状态含义。
-> 【10.22 结构体封装】原全局变量 + 全局函数改为结构体 / 传参函数，用法见块内速查卡。
 
 ```cpp
 #define int long long
@@ -1402,88 +1514,105 @@ int exbsgs(int a, int b, int p){
 // Lucas: C(n,m) mod p，p 为小质数(n 可远大于 p)。
 // 定理: 把 n、m 按 p 进制展开，C(n,m) ≡ ∏ C(n_i, m_i) (mod p)。
 // 直观: 在 (1+x)^n 上做 Frobenius 同余，(1+x)^p ≡ 1+x^p (mod p)，逐位相乘。
-// 验证: Lucas(3).C(5, 2) = 1 (C(5,2)=10≡1; 5=12₃, 2=02₃ → C(1,0)C(2,2)=1)。
-// 10.22: 原版是全局 lucas_fac[1e6] / fac_ex[1e6] 数组 + init 函数（换模数要记得重新 init），已封装为结构体
+// 前提: p 为质数，n,m >= 0；lucas_fac 只开到 1e6，因此 p <= 1e6。
+// 验证: lucas(5, 2, 3) = 1 (C(5,2)=10≡1; 5=12₃, 2=02₃ → C(1,0)C(2,2)=1)。
+int lucas_fac[1000005];
 
-// 【速查】Lucas 定理：C(n, m) mod p，p 是小质数，n、m 可以很大（到 1e18）
-// 用法: Lucas lu(p);  lu.C(n, m)；换模数就新建一个对象
-// 复杂度: 预处理 O(p)，单次 O(log_p n)（逆阶乘也预处理了）
-struct Lucas {
-    int p;
-    vector<int> fac, ifac;
-    Lucas(int p) : p(p), fac(p), ifac(p) {
-        fac[0] = 1;
-        for (int i = 1; i < p; i++) fac[i] = fac[i - 1] * i % p;
-        ifac[p - 1] = ksm(fac[p - 1], p - 2, p);
-        for (int i = p - 1; i > 0; i--) ifac[i - 1] = ifac[i] * i % p;
+// 预处理 0!..(p-1)! mod p；换模数需重新调用
+void lucas_init(int p){
+    lucas_fac[0] = 1;
+    for(int i = 1; i < p; i++){
+        lucas_fac[i] = lucas_fac[i - 1] * i % p;
     }
-    int small(int n, int m) { return m > n ? 0 : fac[n] * ifac[m] % p * ifac[n - m] % p; }   // 0 <= n, m < p
-    int C(int n, int m) {
-        if (m < 0 || m > n) return 0;
-        int res = 1;
-        for (; m; n /= p, m /= p) {            // 每次剥掉 p 进制最低位
-            res = res * small(n % p, m % p) % p;
-            if (!res) break;
-        }
-        return res;
-    }
-};
+}
+
+// C(n,m) mod p，要求 0 <= n,m < p（调用方已取位，故这里不会越界）
+// 用费马小定理求分母逆元，单次 O(log p)。
+int C_small(int n, int m, int p){
+    if(m > n) return 0;
+    return lucas_fac[n] * ksm(lucas_fac[m], p - 2, p) % p
+         * ksm(lucas_fac[n - m], p - 2, p) % p;
+}
+
+// 【速查】Lucas 定理：C(n, m) mod p，p 是小质数（≤ 1e6），n、m 可以很大
+// 用法: lucas_init(p); lucas(n, m, p)；换 p 要重新 lucas_init
+// 复杂度: 预处理 O(p)，单次 O(log_p n · log p)
+// Lucas 主递归: 每层剥掉 p 进制最低位，深度 O(log_p n)
+int lucas(int n, int m, int p){
+    if(m == 0) return 1;
+    return C_small(n % p, m % p, p) * lucas(n / p, m / p, p) % p;
+}
 
 // exLucas: C(n,m) mod p^k (p 质数)。核心: 消去 p 因子 + 周期阶乘 + 逆元。
 // 思路: 把 n! 写成 p^{v} * (与 p 互质的部分)，组合数三部分相除，
 //       互质部分可逆，p 的指数用 Legendre 公式算；最后乘回 p^{v}。
-// fac[i] = ∏_{j<=i, p∤j} j (mod pk)，以 pk 为周期。
-// f(n) = n! 去掉全部 p 因子后的部分 (mod pk) = f(n/p) * fac[pk]^{n/pk} * fac[n%pk]
-//   第一项收集所有 p 的倍数贡献，后两项是完整周期与零头。
-struct ExLucasPK {
-    int p, k, pk;
-    vector<int> fac;
-    ExLucasPK(int p, int k) : p(p), k(k), pk(1) {
-        for (int i = 0; i < k; i++) pk *= p;
-        fac.assign(pk + 1, 1);
-        for (int i = 1; i <= pk; i++) fac[i] = (i % p) ? fac[i - 1] * i % pk : fac[i - 1];
+// fac_ex[i] = ∏_{j<=i, p∤j} j (mod pk)，以 pk 为周期。
+// 注意: fac_ex 只开到 1e6，因此要求 pk <= 1e6；换模数必须重新 exlucas_init。
+int fac_ex[1000005];
+
+// 预处理一个周期内的“去 p 阶乘”前缀积，O(pk)
+void exlucas_init(int p, int pk){
+    fac_ex[0] = 1;
+    for(int i = 1; i <= pk; i++){
+        if(i % p) fac_ex[i] = fac_ex[i - 1] * i % pk;
+        else fac_ex[i] = fac_ex[i - 1];
     }
-    int f(int n) {
-        int res = 1;
-        for (; n; n /= p) res = res * ksm(fac[pk], n / pk, pk) % pk * fac[n % pk] % pk;
-        return res;
-    }
-    int C(int n, int m) {                      // C(n,m) mod p^k，要求 0 <= m <= n
-        int cnt = 0;                           // v_p(C(n,m))，Legendre 公式
-        for (int i = n; i; i /= p) cnt += i / p;
-        for (int i = m; i; i /= p) cnt -= i / p;
-        for (int i = n - m; i; i /= p) cnt -= i / p;
-        if (cnt >= k) return 0;                // p 的指数超过 pk 中含量 → 0
-        int res = ksm(p, cnt, pk);
-        res = res * f(n) % pk;
-        res = res * inv(f(m), pk) % pk;
-        res = res * inv(f(n - m), pk) % pk;
-        return res;
-    }
-};
+}
+
+// n! 去掉全部 p 因子后的部分 (mod pk)
+// 递推: f(n) = f(n/p) * fac_ex[pk]^{n/pk} * fac_ex[n%pk] (mod pk)
+// 第一项收集所有 p 的倍数贡献，后两项是完整周期与零头。
+int f(int n, int p, int pk){
+    if(n == 0) return 1;
+    return f(n / p, p, pk) * ksm(fac_ex[pk], n / pk, pk) % pk * fac_ex[n % pk] % pk;
+}
+
+// C(n,m) mod p^k，要求 n,m >= 0 且 n >= m（否则按 0 处理需自行加判断）
+int C_mod_pk(int n, int m, int p, int k){
+    int pk = 1;
+    for(int i = 0; i < k; i++) pk *= p;
+    int cnt = 0;                       // v_p(C(n,m))
+    for(int i = n; i; i /= p) cnt += i / p;
+    for(int i = m; i; i /= p) cnt -= i / p;
+    for(int i = n - m; i; i /= p) cnt -= i / p;
+    if(cnt >= k) return 0;             // p 的指数超过 pk 中含量 → 0
+    int res = 1;
+    if(cnt) res = res * ksm(p, cnt, pk) % pk;
+    res = res * f(n, p, pk) % pk;
+    res = res * inv(f(m, p, pk), pk) % pk;
+    res = res * inv(f(n - m, p, pk), pk) % pk;
+    return res;
+}
 
 // 【速查】扩展 Lucas：C(n, m) mod M，M 任意（不必是质数）
-// 用法: exlucas(n, m, M)；m > n 返回 0；M 的每个质数幂因子 p^k 要能开 O(p^k) 的数组
-// 做法: 分解 M = ∏ p^k，逐块用 ExLucasPK 求值，再 CRT 合并：
-//       贡献 a * (M/p^k) * inv(M/p^k mod p^k, p^k)（模 M）
-// 复杂度: O(Σ p^k + log M · log n)
+// 用法: exlucas(n, m, M)；要求 n ≥ m，M 的每个质数幂因子 ≤ 1e6
+// 复杂度: O(Σ p^k + log)
+// C(n,m) mod M，M 任意合数: 分解 M = ∏ p^k，逐块用 exLucas 求值，再 CRT 合并。
+// 合并: 对每个 p^k 算 a，贡献 a * (M/p^k) * inv(M/p^k mod p^k, p^k)（模 M）。
+// 复杂度: 对 M 的每个质因子做一次 O(p^k) 预处理，总 O(∑ p^k + log M * log n)。
+// 适用: M <= 1e6 左右（受 fac_ex 大小限制）；M 很大时需动态分配或换算法。
 // 验证: exlucas(5, 2, 12) = 10 (mod 4 得 2，mod 3 得 1，CRT 合并得 10)。
-int exlucas(int n, int m, int M) {
-    if (m < 0 || m > n) return 0;
+int exlucas(int n, int m, int M){
     int ans = 0, MM = M;
-    auto addPart = [&](int p, int k) {
-        ExLucasPK e(p, k);
-        int a = e.C(n, m);
-        ans = (ans + a * (M / e.pk) % M * inv(M / e.pk % e.pk, e.pk) % M) % M;
-    };
-    for (int p = 2; p * p <= MM; p++) {
-        if (MM % p) continue;
-        int k = 0;
-        while (MM % p == 0) MM /= p, k++;
-        addPart(p, k);
+    for(int p = 2; p * p <= MM; p++){
+        if(MM % p) continue;
+        int k = 0, pk = 1;
+        while(MM % p == 0){
+            MM /= p;
+            k++;
+            pk *= p;
+        }
+        exlucas_init(p, pk);
+        int a = C_mod_pk(n, m, p, k);
+        ans = (ans + a * (M / pk) % M * inv(M / pk % pk, pk) % M) % M;
     }
-    if (MM > 1) addPart(MM, 1);
-    return ans % M;
+    if(MM > 1){
+        int p = MM, k = 1, pk = p;
+        exlucas_init(p, pk);
+        int a = C_mod_pk(n, m, p, k);
+        ans = (ans + a * (M / pk) % M * inv(M / pk % pk, pk) % M) % M;
+    }
+    return ans;
 }
 
 // 【速查】求质数 p 的最小原根

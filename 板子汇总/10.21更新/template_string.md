@@ -13,64 +13,104 @@ using namespace std;
 
 ### 字典树
 
-> 【本次修复】移除 #define int long long（原版静态数组因此占 1.68GB）；现为结构体，节点按需开（vector）。
-> 【10.22 结构体封装】原全局变量 + 全局函数改为结构体 / 传参函数，用法见块内速查卡。
+> 【本次修复】移除 #define int long long（原版静态数组因此占 1.68GB）；N=1e5(28MB)，按题目总长调整。
 
 ```cpp
-// 【速查】字典树 Trie（前缀计数 / 精确计数）
-// 用法: Trie t;  t.insert(s);  t.prefixCount(s) -> 以 s 为前缀的已插入串个数;  t.count(s) -> 恰好等于 s 的个数
-//       多组数据: t.clear()；字符集默认 A-Z a-z 0-9（改 SIGMA 和 id() 即可换成纯小写等）
-// 复杂度: 插入 / 查询 O(|s|)；节点按需开（vector），空间 = 总串长 × SIGMA 个 int
-// 10.22: 原版是全局 ch[N][70] 数组 + 手动清空，已封装为结构体
-struct Trie {
-    static const int SIGMA = 62;
-    vector<array<int, SIGMA>> ch;
-    vector<int> pass, ends;                    // pass: 经过该节点的串数（前缀计数）；ends: 在此结束的串数
+// 【速查】字典树 Trie（前缀计数）
+// 用法: insert(s) 插入；query(s) -> 以 s 为前缀的已插入串个数；字符集 A-Z a-z 0-9（hashn 映射）
+// 多组数据: solve 末尾已把用过的 ch/cnt 清零
+// 复杂度: 插入/查询 O(|s|)；空间 N × 70 个 int，N 按"所有串总长"开
+/* 原版有 #define int long long, 导致 ch[3e6][70] 每格 8B 共 1.68GB —— 已移除。
+ * 字符集 62 (大写/小写/数字), 每个节点 70 个儿子槽, int(4B) 下:
+ *   N=1e5 → 28MB; N=5e5 → 140MB。按题目"所有串总长"上限调整 N。 */
+const int N=1e5+10;
+const int base=13331;
+const int mod=1e9+7;
+int n,_T,q;
+string s;
+int ch[N][70]={0};
+int idx;
+int cnt[N];
 
-    Trie() { clear(); }
-    void clear() { ch.assign(1, {}); pass.assign(1, 0); ends.assign(1, 0); }
-    static int id(char c) {
-        if (c >= 'A' && c <= 'Z') return c - 'A';
-        if (c >= 'a' && c <= 'z') return c - 'a' + 26;
-        return c - '0' + 52;
-    }
-    void insert(const string& s) {
-        int p = 0;
-        for (char c : s) {
-            int j = id(c);
-            if (!ch[p][j]) {
-                ch[p][j] = ch.size();               // 先记下新编号再扩容，避免引用失效
-                ch.push_back({}); pass.push_back(0); ends.push_back(0);
-            }
-            p = ch[p][j];
-            pass[p]++;
-        }
-        ends[p]++;
-    }
-    int walk(const string& s) {
-        int p = 0;
-        for (char c : s) { p = ch[p][id(c)]; if (!p) return 0; }
-        return p;
-    }
-    int prefixCount(const string& s) { int p = walk(s); return p ? pass[p] : 0; }
-    int count(const string& s) { int p = walk(s); return p ? ends[p] : 0; }
-};
+int hashn(char x)
+{
+  if(x>='A'&&x<='Z')
+  {
+    return x-'A';
+  }
+  else if(x>='a'&&x<='z')
+  {
+    return x-'a'+26;
+  }
+  else 
+  return x-'0'+52;
+}
 
-// 示例: 读 T 组，每组 n q、n 个串、q 个询问，输出以询问串为前缀的串个数
-int main() {
+void insert(string s)
+{
+  int p=0;
+  int len=s.length();
+  for(int i=0;i<len;i++)
+  {
+    int j=hashn(s[i]);
+    if(!ch[p][j]) ch[p][j]=++idx;
+    p=ch[p][j];
+    cnt[p]++;
+  }
+  
+}
+
+int query(string s)
+{
+  int p=0;
+  int len=s.length();
+  for(int i=0;i<len;i++)
+  {
+    int j=hashn(s[i]);
+    if(!ch[p][j]) return 0;
+    p=ch[p][j];
+  }
+  return cnt[p];
+}
+
+void solve()
+{
+  idx=0;
+  cin>>n>>q;
+  for(int i=1;i<=n;i++)
+  {
+    cin>>s;
+    insert(s);
+  }
+  while(q--)
+  {
+    cin>>s;
+    cout<<query(s)<<endl;
+  }
+  for(int i=0;i<=idx;i++)
+  {
+    for(int j=0;j<=65;j++)
+    {
+      ch[i][j]=0;
+    }
+  }
+  for(int i=0;i<=idx;i++)
+  {
+    cnt[i]=0;
+  }
+}
+
+int main(){
     ios::sync_with_stdio(false);
     cin.tie(0);
-    int T;
-    cin >> T;
-    Trie t;
-    while (T--) {
-        t.clear();
-        int n, q;
-        cin >> n >> q;
-        string s;
-        for (int i = 0; i < n; i++) { cin >> s; t.insert(s); }
-        while (q--) { cin >> s; cout << t.prefixCount(s) << '\n'; }
+    cout.tie(0);
+    
+    cin>>_T;
+    while(_T--)
+    {
+      solve();
     }
+
     return 0;
 }
 ```
@@ -278,67 +318,82 @@ int main() {
 ### KMP与马拉车
 
 > 【本次修复】原版马拉车 getd() 为无分隔符/无边界的死代码，已重写为标准 manacher(str)（返回最长回文长度，奇偶通用）；main 仍为 KMP 示例。
-> 【10.22 结构体封装】原全局变量 + 全局函数改为结构体 / 传参函数，用法见块内速查卡。
 
 ```cpp
-// 【速查】KMP（前缀函数）
-// 用途: 模式串 p 在文本 s 中所有出现位置；border、最小循环节
-// 用法: auto pi = prefixFunction(p);   // pi[i] = p[0..i] 的最长相等真前后缀长度（0-based）
-//       auto pos = kmpFind(s, p);      // p 在 s 中所有出现的起点（0-based）
-// 常用: p 的最小循环节长度 = m - pi[m-1]（若能整除 m 则 p 由它重复构成）
-// 复杂度: O(n + m)
-// 10.22: 原版写在 main 里、用全局 char 数组，已改为函数
-vector<int> prefixFunction(const string& p) {
-    int m = p.size();
-    vector<int> pi(m, 0);
-    for (int i = 1, j = 0; i < m; i++) {
-        while (j && p[i] != p[j]) j = pi[j - 1];
-        if (p[i] == p[j]) j++;
-        pi[i] = j;
-    }
-    return pi;
-}
-vector<int> kmpFind(const string& s, const string& p) {
-    vector<int> res;
-    if (p.empty()) return res;
-    auto pi = prefixFunction(p);
-    for (int i = 0, j = 0; i < (int)s.size(); i++) {
-        while (j && s[i] != p[j]) j = pi[j - 1];
-        if (s[i] == p[j]) j++;
-        if (j == (int)p.size()) { res.push_back(i - j + 1); j = pi[j - 1]; }
-    }
-    return res;
-}
+#define int long long
 
+const int N=1e6+10;
+int n,m;
+char s1[N],s2[N];
+string s,p;
+int ne[N];
+
+//马拉车(Manacher)求最长回文子串长度
+//原版 getd() 无 '#' 分隔符且无边界检查(不能处理偶回文, 越界为 UB), 且从未被调用 —— 已重写
+//d[i]: 变换串 t = "#a#b#..." 中以 i 为中心的回文臂长, 恰等于原串对应回文的长度
+int d[N * 2];
 // 【速查】Manacher 最长回文子串
-// 用法: vector<int> d;  int len = manacher(s, d);   // 返回最长回文子串长度（奇偶都算）
-// 进阶: d[i] 是变换串 "#a#b#…" 中以 i 为中心的回文臂长（= 原串对应回文的长度），
-//       中心为原串 s[k] 的位置是 i = 2k+1，中心在 s[k-1]、s[k] 之间的位置是 i = 2k
+// 用法: int len = manacher(s);    // 返回最长回文子串长度（奇偶都算）
+// 进阶: 调用后 d[i] 是变换串 "#a#b#" 中以 i 为中心的回文长度（= 原串回文长度）
 // 复杂度: O(n)
-int manacher(const string& str, vector<int>& d) {
+int manacher(const string& str){
     string t = "#";
-    for (char c : str) { t += c; t += '#'; }
+    for(char c : str){ t += c; t += '#'; }
     int m = t.size(), C = 0, R = 0, best = 0;
-    d.assign(m, 0);
-    for (int i = 0; i < m; i++) {
+    for(int i = 0; i < m; i++){
         int k = (i < R) ? min(d[2 * C - i], R - i) : 0;
-        while (i - k - 1 >= 0 && i + k + 1 < m && t[i - k - 1] == t[i + k + 1]) k++;
+        while(i - k - 1 >= 0 && i + k + 1 < m && t[i - k - 1] == t[i + k + 1]) k++;
         d[i] = k;
-        if (i + k > R) { C = i; R = i + k; }
-        best = max(best, d[i]);
+        if(i + k > R){ C = i; R = i + k; }
+        best = max(best, (int)d[i]);
     }
     return best;
 }
-int manacher(const string& str) { vector<int> d; return manacher(str, d); }
 
-// 示例: 读文本 s 和模式 p，输出每次出现的起点（1-based），再输出 p 的前缀函数
-int main() {
+
+// 【速查】KMP（写在 main 里，1-based）
+// 用途: 模式串 p 在文本 s 中所有出现位置；ne[i] = p[1..i] 的最长相等真前后缀长度（border）
+// 用法: s1、s2 是 1-based 的文本/模式；第一个循环求 ne，第二个循环匹配，j == n 时找到一次（起点 i-n+1）
+// 常用: 最小循环节长度 = n - ne[n]
+// 复杂度: O(n + m)
+signed main(){
     ios::sync_with_stdio(false);
     cin.tie(0);
-    string s, p;
-    cin >> s >> p;
-    for (int x : kmpFind(s, p)) cout << x + 1 << '\n';
-    for (int v : prefixFunction(p)) cout << v << ' ';
+    cout.tie(0);
+  
+    cin>>s>>p;
+    int m=s.length(),n=p.length();
+    ne[1]=0;
+    for(int i=1;i<=m;i++)
+    {
+      s1[i]=s[i-1];
+    }
+    for(int i=1;i<=n;i++)
+    {
+      s2[i]=p[i-1];
+    }
+    for(int i=2,j=0;i<=n;i++)
+    {
+      while(j&&s2[i]!=s2[j+1]) j=ne[j];
+      if(s2[i]==s2[j+1]) j++;
+      ne[i]=j;
+    }
+    for(int i=1,j=0;i<=m;i++)
+    {
+      while(j&&s1[i]!=s2[j+1]) j=ne[j];
+      if(s1[i]==s2[j+1]) j++;
+      if(j==n) 
+      {
+        cout<<i-n+1<<endl;
+        j=ne[j];
+      }
+    }
+
+    for(int i=1;i<=n;i++)
+    {
+      cout<<ne[i]<<' ';
+    }
+
     return 0;
 }
 ```
