@@ -4,19 +4,32 @@ using namespace std;
 
 // ============================== 数论进阶板子 ==============================
 // 内容: 快速乘、Miller-Rabin、Pollard-Rho、欧拉降幂、BSGS/exBSGS、
-//       Lucas/exLucas、阶与原根、二次剩余(Cipolla)、Min_25 筛
+//       Lucas/exLucas、阶与原根、二次剩余(Cipolla)、Min_25 筛。
 // 与 数论.cpp 合并时注意: 本文件自带 ksm / exgcd / oula_phi 副本，请去重。
-// 说明: 本文件 ksm 内部用 mul(龟速防溢出) 实现，任何模数(含 2^64 级)都安全；
-//       mul 基于 __int128，若编译器不支持可换成龟速乘(见注释)。
+// 说明: 本文件 ksm 内部用 mul(基于 __int128) 实现，任何模数(含 2^64 级)都安全；
+//       若编译器不支持 __int128，可把 mul 换成龟速乘（按位加）。
+// 编译: GCC/Clang，-std=c++17；MSVC 不支持 __int128。
+// 复杂度速查:
+//   Miller-Rabin   O(k log n)，k=7 个底数，2^64 内确定；
+//   Pollard-Rho    期望 O(n^{1/4})；
+//   BSGS/exBSGS    O(√p) 时间与空间；
+//   Lucas          O(p) 预处理 + O(log p · log_p n) 单次；
+//   exLucas        O(∑ p^k) 预处理 + O(log n · log p^k) 单次；
+//   Cipolla        期望 O(log p)；
+//   Min_25 筛      O(n^{3/4} / log n)。
+// ==========================================================================
 
 const int mod = 1e9 + 7;
 
 // ============================== 基础工具 ==============================
-// 模乘防溢出: 仅在 a,b < m 时保证正确
+// 模乘防溢出: 计算 a*b mod m，要求 0 <= a,b < m（否则先取模）
+// 用 __int128 承接 64 位乘积；m 可以接近 2^63。
 int mul(int a, int b, int m){
     return (int)((__int128)a * b % m);
 }
 
+// 快速幂: x^a mod m，内部用 mul 防溢出；要求 a >= 0、m > 1。
+// 因为先做了 x %= m，底数可以很大（如 Miller-Rabin 的底数）。
 int ksm(int x, int a, int m){
     int ans = 1;
     x %= m;                     // 兼容大底数(如 Miller-Rabin 的 a)
@@ -28,6 +41,8 @@ int ksm(int x, int a, int m){
     return ans;
 }
 
+// 扩展欧几里得: 返回 g = gcd(a,b)，并求出一组 (x,y) 使 a*x + b*y = g。
+// 通解 x' = x + k*b/g, y' = y - k*a/g；用于求逆元和解不定方程。
 int exgcd(int a, int b, int &x, int &y){
     if(!b){
         x = 1;
@@ -41,14 +56,15 @@ int exgcd(int a, int b, int &x, int &y){
     return d;
 }
 
-// 模逆元(要求 gcd(a,m)=1，m 不必为质数)
+// 模逆元: 返回 a^{-1} mod m，要求 gcd(a,m)=1（m 不必为质数）。
+// 结果为 [0,m) 内的最小非负解；m = 1 时无意义。
 int inv(int a, int m){
     int x, y;
     exgcd(a, m, x, y);
     return (x % m + m) % m;
 }
 
-// 单个数欧拉函数
+// 单个数欧拉函数 φ(n)，O(√n)，要求 n >= 1。
 int oula_phi(int n){
     int ans = n;
     for(int i = 2; i * i <= n; i++){
@@ -63,7 +79,11 @@ int oula_phi(int n){
 
 // ============================== Miller-Rabin 素性测试 ==============================
 // 费马测试 + 二次探测。底数集为 2^64 内的确定性集合(无需随机)。
-// 复杂度 O(k log n)，k 为底数个数。
+// 原理: 把 n-1 写成 d * 2^s（d 为奇数），对底数 a 检查
+//       a^d ≡ 1 (mod n) 或存在 0 <= r < s 使 a^{d*2^r} ≡ -1 (mod n)；
+//       两者都不满足则 n 一定合数。若 n 是奇素数，上述必成立（费马小定理 + 二次探测定理）。
+// 底数集 {2,325,9375,28178,450775,9780504,1795265022} 对 n < 2^64 是确定性的。
+// 复杂度 O(k log n)，k 为底数个数（这里 7），每次乘法走 mul 的 __int128。
 // 验证: n=341550071728321(伪素数) 判合数; n=998244353 判素数。
 bool is_prime(int n){
     if(n < 2) return false;
@@ -93,10 +113,12 @@ bool is_prime(int n){
 }
 
 // ============================== Pollard-Rho 大数分解 ==============================
+// 目标: 对合数 n 找一个非平凡因子（之后再递归分解）。
 // 生日悖论: 在模 q(待找因子) 的剩余系里取 O(√q) 个伪随机数 x_i = f(x_{i-1})，
 // 出现 x_i ≡ x_j (mod q) 时 gcd(|x_i-x_j|, n) 即非平凡因子。
-// Floyd 判圈: 龟走 1 步、兔走 2 步，O(1) 空间。(Brent 版更快，需要时可替换)
-// 期望复杂度 O(n^{1/4})。依赖 is_prime。
+// 本实现取 f(x) = x^2 + c（c 随机），Floyd 判圈: 龟走 1 步、兔走 2 步，O(1) 空间。
+// (Brent 版常数更小，需要时可替换。)
+// 期望复杂度 O(n^{1/4})。依赖 is_prime；n 必须是大于 3 的奇数合数。
 mt19937_64 rng(chrono::steady_clock::now().time_since_epoch().count());
 
 int pollard_rho(int n){
@@ -116,9 +138,11 @@ int pollard_rho(int n){
     }
 }
 
-// 质因数分解(带指数)，结果存入 mp。使用示例:
+// 质因数分解(带指数)，结果存入 mp（可累加多次调用）。使用示例:
 //   map<int,int> mp; factor(341550071728321, mp);
 //   mp = {10670053: 1, 32010157: 1}
+// 做法: 若 n 是质数直接计入；否则 Pollard-Rho 找一个因子 d，递归分解 d 和 n/d。
+// 注意: n 必须能用 long long 表示；递归深度是因子个数级别，不会爆栈。
 void factor(int n, map<int,int>& mp){
     if(n < 2) return;
     if(is_prime(n)){
@@ -131,9 +155,14 @@ void factor(int n, map<int,int>& mp){
 }
 
 // ============================== 欧拉降幂(扩展欧拉定理) ==============================
-// a^b ≡ a^b (b < φ(p));  a^b ≡ a^(b mod φ(p) + φ(p)) (b ≥ φ(p))  (mod p)
-// b 以字符串传入，可超过 long long。依赖 oula_phi。
+// 对任意 a, p（不要求 gcd(a,p)=1）:
+//   b <  φ(p) 时  a^b ≡ a^b (mod p)
+//   b >= φ(p) 时  a^b ≡ a^(b mod φ(p) + φ(p)) (mod p)
+// b 以十进制字符串传入，可超过 long long。依赖 oula_phi。
+// 实现: 逐位累加 e = b mod φ(p)，并记录“真实 b 是否曾 >= φ(p)”（big）；
+//       若 big 为真，指数用 e + φ(p)，而不是只取 e。
 // 验证: 2^100 mod 7 = 2 (φ(7)=6, 100≥6 → 2^(4+6)=2^10≡2)。
+// 要求 p >= 2（p = 1 时取模无意义，ksm 会返回 1 而不是 0）。
 int euler_pow(int a, string b, int p){
     int phi = oula_phi(p);
     int e = 0;
@@ -150,9 +179,13 @@ int euler_pow(int a, string b, int p){
 }
 
 // ============================== BSGS 离散对数 ==============================
-// 求 a^x ≡ b (mod p) 的最小非负整数解 x，要求 gcd(a, p) = 1。
-// 大步小步: x = i*m - j, m = ⌈√p⌉, 哈希表存 b*a^j。
-// 复杂度 O(√p)。无解返回 -1。
+// 求 a^x ≡ b (mod p) 的最小非负整数解 x，要求 gcd(a, p) = 1（p 不必为质数）。
+// 大步小步: 令 m = ⌈√p⌉，把 x 写成 x = i*m - j（0 <= j < m），
+//           则 a^{i*m} ≡ b*a^j；先枚举 j 把 b*a^j 丢进哈希表，
+//           再枚举 i 查表，命中即得 x = i*m - j。
+// 复杂度 O(√p) 时间与空间；无解返回 -1。
+// 注意: p 很大时 sqrt(p) 的 double 精度可能差 1，必要时用整数开方；
+//       unordered_map 最坏 O(√p) 但常数较大，卡常可换手写哈希。
 // 验证: bsgs(2, 3, 5) = 3 (2^3 ≡ 3 mod 5)。
 int bsgs(int a, int b, int p){
     a %= p;
@@ -177,7 +210,11 @@ int bsgs(int a, int b, int p){
     return -1;
 }
 
-// 扩展 BSGS: gcd(a, p) 任意。逐次消公因子归约到普通 BSGS。
+// 扩展 BSGS: gcd(a, p) 任意。逐次消去公因子，把方程归约到普通 BSGS。
+// 推导: 设 d = gcd(a,p)。若 d ∤ b 且 b != 1，则无解；
+//       否则两边同除以 d，得到 (a/d)*a^{x-1} ≡ b/d (mod p/d)，累计系数 base。
+//       重复直到 gcd(a,p)=1，再解 a^t ≡ b * base^{-1} (mod p)，答案 x = t + k。
+// 注意: 归约过程中若 base == b 可直接返回 k（对应 x = k 的提前命中）。
 // 验证: exbsgs(2, 4, 6) = 2;  exbsgs(4, 7, 10) = -1。
 int exbsgs(int a, int b, int p){
     a %= p;
@@ -200,9 +237,12 @@ int exbsgs(int a, int b, int p){
 // ============================== Lucas 定理 / exLucas ==============================
 // Lucas: C(n,m) mod p，p 为小质数(n 可远大于 p)。
 // 定理: 把 n、m 按 p 进制展开，C(n,m) ≡ ∏ C(n_i, m_i) (mod p)。
+// 直观: 在 (1+x)^n 上做 Frobenius 同余，(1+x)^p ≡ 1+x^p (mod p)，逐位相乘。
+// 前提: p 为质数，n,m >= 0；lucas_fac 只开到 1e6，因此 p <= 1e6。
 // 验证: lucas(5, 2, 3) = 1 (C(5,2)=10≡1; 5=12₃, 2=02₃ → C(1,0)C(2,2)=1)。
 int lucas_fac[1000005];
 
+// 预处理 0!..(p-1)! mod p；换模数需重新调用
 void lucas_init(int p){
     lucas_fac[0] = 1;
     for(int i = 1; i < p; i++){
@@ -210,22 +250,28 @@ void lucas_init(int p){
     }
 }
 
-// C(n,m) mod p，n、m < p
+// C(n,m) mod p，要求 0 <= n,m < p（调用方已取位，故这里不会越界）
+// 用费马小定理求分母逆元，单次 O(log p)。
 int C_small(int n, int m, int p){
     if(m > n) return 0;
     return lucas_fac[n] * ksm(lucas_fac[m], p - 2, p) % p
          * ksm(lucas_fac[n - m], p - 2, p) % p;
 }
 
+// Lucas 主递归: 每层剥掉 p 进制最低位，深度 O(log_p n)
 int lucas(int n, int m, int p){
     if(m == 0) return 1;
     return C_small(n % p, m % p, p) * lucas(n / p, m / p, p) % p;
 }
 
-// exLucas: C(n,m) mod p^k (p 质数)。核心: 消 p 因子 + 周期阶乘 + 逆元。
-// fac_ex[i] = ∏_{j≤i, p∤j} j (mod pk)，每 pk 一个周期。
+// exLucas: C(n,m) mod p^k (p 质数)。核心: 消去 p 因子 + 周期阶乘 + 逆元。
+// 思路: 把 n! 写成 p^{v} * (与 p 互质的部分)，组合数三部分相除，
+//       互质部分可逆，p 的指数用 Legendre 公式算；最后乘回 p^{v}。
+// fac_ex[i] = ∏_{j<=i, p∤j} j (mod pk)，以 pk 为周期。
+// 注意: fac_ex 只开到 1e6，因此要求 pk <= 1e6；换模数必须重新 exlucas_init。
 int fac_ex[1000005];
 
+// 预处理一个周期内的“去 p 阶乘”前缀积，O(pk)
 void exlucas_init(int p, int pk){
     fac_ex[0] = 1;
     for(int i = 1; i <= pk; i++){
@@ -234,13 +280,15 @@ void exlucas_init(int p, int pk){
     }
 }
 
-// n! 除去全部 p 因子后的部分 (mod pk)
+// n! 去掉全部 p 因子后的部分 (mod pk)
+// 递推: f(n) = f(n/p) * fac_ex[pk]^{n/pk} * fac_ex[n%pk] (mod pk)
+// 第一项收集所有 p 的倍数贡献，后两项是完整周期与零头。
 int f(int n, int p, int pk){
     if(n == 0) return 1;
     return f(n / p, p, pk) * ksm(fac_ex[pk], n / pk, pk) % pk * fac_ex[n % pk] % pk;
 }
 
-// C(n,m) mod p^k
+// C(n,m) mod p^k，要求 n,m >= 0 且 n >= m（否则按 0 处理需自行加判断）
 int C_mod_pk(int n, int m, int p, int k){
     int pk = 1;
     for(int i = 0; i < k; i++) pk *= p;
@@ -257,7 +305,10 @@ int C_mod_pk(int n, int m, int p, int k){
     return res;
 }
 
-// C(n,m) mod M，M 任意合数: 分解 M = ∏ p^k，逐块求值再 CRT 合并。
+// C(n,m) mod M，M 任意合数: 分解 M = ∏ p^k，逐块用 exLucas 求值，再 CRT 合并。
+// 合并: 对每个 p^k 算 a，贡献 a * (M/p^k) * inv(M/p^k mod p^k, p^k)（模 M）。
+// 复杂度: 对 M 的每个质因子做一次 O(p^k) 预处理，总 O(∑ p^k + log M * log n)。
+// 适用: M <= 1e6 左右（受 fac_ex 大小限制）；M 很大时需动态分配或换算法。
 // 验证: exlucas(5, 2, 12) = 10 (mod 4 得 2，mod 3 得 1，CRT 合并得 10)。
 int exlucas(int n, int m, int M){
     int ans = 0, MM = M;
@@ -283,8 +334,13 @@ int exlucas(int n, int m, int M){
 }
 
 // ============================== 阶与原根 ==============================
-// 阶: 最小的 k > 0 使 a^k ≡ 1 (mod p)。存在性要求 gcd(a,p)=1。
-// 求 p 的最小原根(p 为质数): 对 p-1 的每个质因子 q 检验 g^((p-1)/q) ≢ 1 (mod p)。
+// 阶: 最小的 k > 0 使 a^k ≡ 1 (mod p)，记 ord_p(a)。存在性要求 gcd(a,p)=1，
+//     且由拉格朗日定理 ord_p(a) | φ(p) = p-1（p 为质数时）。
+// 原根: 阶恰为 p-1 的元素，其幂遍历 1..p-1。模质数 p 的原根一定存在。
+// 判定: g 是原根 <=> 对 p-1 的每个不同质因子 q，都有 g^{(p-1)/q} ≢ 1 (mod p)。
+// 求最小原根: 分解 p-1，从 g=2 开始逐个检验；最小原根通常很小，期望 O(log) 次尝试。
+// 复杂度: 分解 p-1 为 O(√p)，检验为 O(ω(p-1) log p)。
+// 注意: 要求 p 为奇质数（p=2 时原根应为 1，本函数会返回 2，需特判）。
 // 验证: primitive_root(998244353) = 3。
 int primitive_root(int p){
     int phi = p - 1, x = phi;
@@ -309,8 +365,12 @@ int primitive_root(int p){
 }
 
 // ============================== 二次剩余(Cipolla) ==============================
-// 解 x^2 ≡ n (mod p)，p 为奇质数。欧拉判别法判有解，扩域 F_p[√w] 上快速幂。
-// 返回一个解 x(另一个为 p-x)，无解返回 -1。
+// 解 x^2 ≡ n (mod p)，p 为奇质数。
+// 判存在: 欧拉判别法，n^{(p-1)/2} ≡ 1 时有解，≡ -1 时无解（n=0 解为 0）。
+// 做法: 取 a 使 w = a^2 - n 为非二次剩余，在扩域 F_p[√w] 中计算
+//       (a + √w)^{(p+1)/2}，其虚部必为 0，实部就是一个解（另一个为 p-x）。
+// 返回一个解 x，无解返回 -1；期望尝试 2 次即可找到合适的 a，复杂度 O(log p)。
+// 注意: p=2 时本函数不适用（需单独返回 n）；sqrt(w) 只是形式符号，不实际开方。
 // 验证: cipolla(2, 7) = 4 (4^2 ≡ 2 mod 7)。
 int cipolla(int n, int p){
     n %= p;

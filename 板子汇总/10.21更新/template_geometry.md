@@ -1,4 +1,4 @@
-# David_计算几何（10.21 修复版）
+# David_计算几何（10.21 修复版，10.22 注释补充）
 
 > **通用前导**：本文档所有代码块为片段，需配合以下前导使用：
 
@@ -9,54 +9,78 @@ using namespace std;
 
 标注 **【本次修复】** 的模板经过 2026-10-21 全量审查修复，并全部通过随机对拍/压测回归验证；各修复点在代码注释中亦有说明。
 
+> **2026-10-22 补充**：2D/3D 模板增加了统一约定（角度方向、eps、坐标上限、容器大小）
+> 与各算法的原理/退化情形说明，原有精度警告全部保留。
+
 [TOC]
 
 ### 2D计算几何
 
 > 点积/叉积/线段相交/多边形面积/点在多边形内/凸包(Andrew)/点在凸包内 O(logn)/切线/半平面交/圆全套/皮克定理。各函数精度前提与坑见注释（如坐标绝对值≤9.4e7）。
+> 文件头补充了全局约定与运算符语义；半平面交、Andrew、极角排序、凸包切线等段落补充了做法与复杂度。
 
 ```cpp
-//注意所有有关vector数组都不可开过大如 n+5，必须是有多少点n就是多少
-//注意所有有关vector数组都不可开过大如 n+5，必须是有多少点n就是多少
-//注意所有有关vector数组都不可开过大如 n+5，必须是有多少点n就是多少
-//注意所有有关vector数组都不可开过大如 n+5，必须是有多少点n就是多少
-//注意所有有关vector数组都不可开过大如 n+5，必须是有多少点n就是多少
-//注意所有有关vector数组都不可开过大如 n+5，必须是有多少点n就是多少
+// ============================== 2D 计算几何 ==============================
+// 内容: 点/向量运算、距离、夹角、方位判断、直线/线段相交、多边形面积与内外、
+//       半平面交、圆与点/直线/圆的位置关系、切线、外接圆/内切圆、皮克定理、
+//       极角排序、Andrew 凸包、凸包内点 O(log n)、凸包切线/可见边、线段与凸包相交。
+//
+// 统一约定:
+//   * 角度单位为弧度，逆时针为正；叉积 a % b > 0 表示 b 在 a 的逆时针方向。
+//   * eps = 1e-9 是绝对误差，sgn(x) 在 |x| < eps 时判 0；坐标跨度很大时绝对 eps 会失真。
+//   * 坐标绝对值建议 <= 9.4e7 = sqrt(2^53)，否则 double 叉积丢精度（详见 Cross）。
+//   * 点集按下标 0..n-1 存放；容器按实际点数开，不要习惯性写 n+5 预留。
+//   * 大多数函数要求输入是“简单多边形/非退化图形”，退化情形见各函数注释。
+// =========================================================================
 
 const double PI = acos(-1), eps = 1e-9;
 
+// 符号函数: |x| < eps 返回 0，否则返回 -1/1；整个文件的方向判断都依赖它
 int sgn(double x) {
     if (fabs(x) < eps) return 0;
     return x < 0 ? -1 : 1;
 }
 
+// 二维点/向量: 同时承担“点”和“从原点出发的向量”两种角色
 struct Pt{
     double x, y;
     Pt(double x = 0.0, double y = 0.0) : x(x), y(y) {}
     
+    // 向量减法: a-b 表示从 b 指向 a 的向量
     Pt operator- (const Pt& b) const {return Pt(x - b.x, y - b.y);}
 
+    // 向量加法
     Pt operator+ (const Pt& b) const {return Pt(x + b.x, y + b.y);}
 
+    // 叉积 a % b = ax*by - ay*bx:
+    //   > 0: b 在 a 逆时针侧；< 0: 顺时针侧；= 0: 共线
+    //   绝对值 = 以 a,b 为邻边的平行四边形面积
     double operator% (const Pt& b) const {return x * b.y - y * b.x;}
 
+    // 数乘
     Pt operator* (const double b) const {return Pt(x * b, y * b);}
 
+    // 点积 a * b = |a||b|cosθ；= 0 表示垂直，> 0 锐角，< 0 钝角
     double operator* (const Pt& b) const {return x * b.x + y * b.y;}
 
+    // 数除
     Pt operator/ (const double b) const {return Pt(x / b, y / b);}
 
+    // 字典序: 先比 x 再比 y，供 sort / Andrew 凸包使用
     bool operator< (const Pt& b) const {return x < b.x || (x == b.x && y < b.y);}
 
+    // 相等/不等: 用 sgn 做 eps 比较，避免浮点直接 ==
     bool operator== (const Pt& b) const {return sgn(x - b.x) == 0 && sgn(y - b.y) == 0;}
 
     bool operator!= (const Pt& b) const {return sgn(x - b.x) != 0 || sgn(y - b.y) != 0;}
 };
 
+// 向量长度 |a|
 double dis(Pt a){
     return sqrt(a * a);
 }
 
+// 向量长度平方 |a|^2，比较距离时用它可以避免开方误差
 double ddis(Pt a){
     return a * a;
 }
@@ -86,10 +110,14 @@ int Cross(Pt a, Pt b, Pt c){
 }
 
 
+// 原始叉积（不取符号）: (b-a) × (c-a)，等于三角形 ABC 有向面积的两倍。
+// 需要面积/比例时用它；只判方向请用上面的 Cross，避免自己再 sgn 一次。
 double cross(Pt a, Pt b, Pt c){
     return (b - a) % (c - a);
 }
 
+// 有向直线: 从 s 指向 e，左侧为合法半平面（半平面交约定）
+// ang 是方向角的 atan2 值，范围 (-π, π]，构造时自动算好。
 struct Line {
     Pt s, e;
     double ang;
@@ -114,23 +142,25 @@ struct Line {
 };
 
 
+// 点 c 相对有向直线 l（s->e）的方位: 1 左侧，0 共线，-1 右侧
+// 与 Cross(a,b,c) 完全等价，只是参数换成 Line，便于半平面交读写。
 int Cross(Pt c, Line l){
     Pt a = l.s, b = l.e;
     return sgn((b - a) % (c - a));
 }
 
-//三点共线
+// 三点共线（叉积为 0），等价于 Cross(a,b,c) == 0
 bool In_one_line(Pt a, Pt b, Pt c){
     return !sgn((b - a) % (c - a));
 }
-//点到直线距离
+// 点到直线距离
 // a == b 时退化: 不加保护会返回 nan, 而 sgn(nan) == 1, 会让 LWC 把"圆心处的退化直线"判成相离
 double dist_ptl(Pt p, Pt a, Pt b){
     if (a == b) return dis(p - a);
     Pt v1 = p - a, v2 = b - a;
     return fabs((v1 % v2) / dis(v2));
 }
-//点到线段距离
+// 点到线段距离: 投影落在线段外时取到端点的距离，否则取垂距
 double dist_pts(Pt p, Pt a, Pt b){
     if(a == b) return dis(p - a);
     Pt v1 = b - a, v2 = p - a, v3 = p - b;
@@ -150,14 +180,16 @@ bool OnSegment(Pt p, Pt a, Pt b){
 bool Intersect_line_seg(Pt a, Pt b, Pt c, Pt d){
     return Cross(a, b, c) * Cross(a, b, d) <= 0;
 }
-//线段与线段是否相交
+// 线段与线段是否相交（含端点接触、共线重叠）
+// 分两步: 先处理“某端点落在另一条线段上”的退化情况；
+//         再要求两条线段严格分居对方所在直线两侧（叉积异号）。
 bool Intersect_seg(Pt a, Pt b, Pt c, Pt d){
     if (OnSegment(a, c, d) || OnSegment(b, c, d) || OnSegment(c, a, b) || OnSegment(d, a, b)) return 1;
     if (Cross(a, b, c) * Cross(a, b, d) >= 0) return 0;
     if (Cross(c, d, a) * Cross(c, d, b) >= 0) return 0;
     return 1;
 }
-//线段到线段距离
+// 线段到线段距离: 相交为 0，否则取四个端点到对方线段距离的最小值
 double dist_sts(Pt a, Pt b, Pt c, Pt d){
     if(Intersect_seg(a, b, c, d)){
         return 0.0;
@@ -178,7 +210,9 @@ bool Line_parallel(Line A, Line B){
     if (sgn(du) == 0 || sgn(dv) == 0) return true;  // 退化的"直线", 当作平行
     return sgn((u % v) / (du * dv)) == 0;
 }
-//直线交点（四个点）
+// 两直线交点（用两点式给出）: 返回直线 ab 与 cd 的交点。
+// 用参数 t 表示: a + t*(b-a)，解叉积方程即可；分母 v%u == 0 时两线平行/重合，
+// 结果会变成 inf/nan，调用前需自行判 Line_parallel。
 Pt Inter_Line_Pt(Pt a, Pt b, Pt c, Pt d){
     Pt u = b - a, v = d - c;
     double t = ((a - c) % v) / (v % u);
@@ -194,8 +228,14 @@ Pt Inter_Line_Pt(Line a, Line b) {
     return a.s + v1 * t;
 }
 
-//半平面交
-//保留每一条直线的左侧区域
+// 半平面交: 输入一组有向直线，求它们左侧半平面的交集，返回交多边形的顶点（逆时针）。
+// 步骤:
+//   1) 按极角排序，极角相同的只保留约束最强（最靠左）的一条；
+//   2) 双端队列依次加入直线，若新直线把队尾/队首交点判到右侧，就弹出对应端点；
+//   3) 最后用队尾与队首的交点封闭多边形；不足 3 条边视为空集。
+// 复杂度 O(n log n)（排序）+ O(n)（每条直线至多进出队一次）。
+// 无解/无界统一返回空 vector；调用方必须先加一圈足够大的边界框保证有界。
+//
 //!!!注意，设置边界的时候，limit一定要比eps大一点，不然可能卡精度，例如limit=1e-11,eps=1e-18
 //!!!Line 只有 (Pt, Pt) 一个构造函数, 下面的例子别再传第三个参数
 //!!!必须自己保证区域有界(先塞一圈大边界框), 否则返回的顶点里会混进 nan/inf 且不报错
@@ -282,15 +322,15 @@ vector<Pt> getHalfPlaneIntersection(vector<Line>& L) {
 }
 
 //  ------ 多边形 -------
-// 三角形面积
+// 三角形面积: |AB × AC| / 2（无向）
 double Triangle_area(Pt A, Pt B, Pt C){
     return fabs((B - A) % (C - A)) / 2;
 }
-//凸多边形面积
-// 因为叉积求得的三角形面积是有向的, 在外面的面积可以正负抵消掉
-// 所以能够求任意多边形面积(凸, !凸)
-// !!! 但必须是**简单多边形**(边不自交)。自交多边形会正负相消, 比如蝴蝶结形状返回 0
-// p[]下标从 0 开始, 长度为 n
+// 多边形面积: 以 p[0] 为扇心拆成 n-2 个三角形，叉积有向面积求和后取绝对值。
+// 对凸/凹的**简单多边形**都成立（边不自交）；顺时针/逆时针给出均可。
+// !!! 自交多边形会正负相消, 比如蝴蝶结形状返回 0。
+// p[]下标从 0 开始, 长度为 n；O(n)。
+// 需要判断方向时把最后一行换成 return S/2（逆时针为正）。
 double area(vector<Pt>& p){
     int n = p.size();
     double S = 0;
@@ -301,14 +341,12 @@ double area(vector<Pt>& p){
     //return S / 2;//有向面积
 }
 
-//点在多边形内(射线法)
-// 适用于任意简单多边形, 顺时针逆时针给出都可以
+// 点在多边形内(射线法): 从 P 向 +x 方向发射线，统计与边的交点个数，奇数次在内部。
+// 适用于任意简单多边形, 顺时针逆时针给出都可以；O(n)。
+// 返回: -1 在边上，1 在内部，0 在外部。
 // 注意: 内部要除以一条边两端点的 y 差, 近水平且 x 跨度极大的边仍会掉精度,
-//       不是完全不用管误差(整数坐标下随机 6 万次查询无误)
-// 点在多边形边上, 返回 -1
-// 点在多边形内, 返回 1
-// 点在多边形外, 返回 0
-
+//       不是完全不用管误差(整数坐标下随机 6 万次查询无误)；顶点/边上的判定依赖 OnSegment。
+//
 // p[] 的下标从 0 开始, 长度为 n
 int InPolygon(Pt P, vector<Pt>& p) {
     int n = p.size();
@@ -322,7 +360,8 @@ int InPolygon(Pt P, vector<Pt>& p) {
     }
     return flag;
 }
-//是否为凸多边形 (convex; 函数名 Is_contex 是历史拼写错误, 搜 convex 搜不到它)
+// 是否为凸多边形 (convex; 函数名 Is_contex 是历史拼写错误, 搜 convex 搜不到它)
+// 做法: 绕一圈检查所有拐向的符号是否一致（允许共线点），O(n)。
 // !!! 只检查拐向是否一致, **自交多边形会被判成凸**: 五角星实测返回 true
 //     调用前必须自己保证是简单多边形; 全部顶点共线的退化多边形也返回 true
 bool Is_contex(vector<Pt>& p){
@@ -338,14 +377,15 @@ bool Is_contex(vector<Pt>& p){
 }
 
 
-// ------ 圆 -------
+// ------ 圆 ------
+// 圆: 圆心 o + 半径 r（r >= 0）
 struct Circle{
     Pt o;
     double r;
     Circle(Pt o = Pt(), double r = 0) : o(o), r(r) {}
 
-    double S(){return PI * r * r;}
-    double C(){return PI * 2 * r;}
+    double S(){return PI * r * r;}   // 面积 πr²
+    double C(){return PI * 2 * r;}   // 周长 2πr
 };
 //扇形面积(有向, 逆时针为正)
 // !!! A、B 必须是**相对圆心**的向量。圆心不在原点时要写 SectorArea(A - c.o, B - c.o, c.r)
@@ -456,6 +496,9 @@ vector<Pt> Intersection_circle_circle(Circle A, Circle B) {
     };
 }
 //求圆外一点对圆的两个切点
+// 求圆外一点 p 到圆 c 的两个切点。
+// 点在圆内返回空，点在圆上返回 {p}，点在圆外返回 2 个点。
+// 做法: 切线长 l = sqrt(|po|² - r²)，圆心方向的单位向量旋转 ±asin(r/d) 后取长度 l。
 vector<Pt> TangentPt_Pt_circle(Pt p, Circle c) {
     double d2 = ddis(p - c.o);
     int status = sgn(d2 - c.r * c.r);
@@ -480,7 +523,7 @@ vector<Pt> TangentPt_Pt_circle(Pt p, Circle c) {
     };
 }
 
-//求三角形外接圆
+// 求三角形外接圆: 圆心是三条中垂线的交点，半径到任一顶点。
 // !!! 前置条件: A、B、C 不共线。共线时 D = 0, 返回的圆心是 (-inf, inf)、半径 inf, 没有任何提示
 Circle get_circumcircle(Pt A, Pt B, Pt C) {
     double Bx = B.x - A.x, By = B.y - A.y;
@@ -492,7 +535,8 @@ Circle get_circumcircle(Pt A, Pt B, Pt C) {
     Pt P(x, y);
     return Circle(P, dis(A - P));
 }
-//三角形内切圆
+// 求三角形内切圆: 内心 = (a*A + b*B + c*C)/(a+b+c)，a,b,c 为角 A,B,C 的对边长度；
+// 半径 = 内心到任一边的距离。要求三角形非退化。
 Circle get_incircle(Pt A, Pt B, Pt C) {
     double a = dis(B - C);
     double b = dis(A - C);
@@ -564,6 +608,10 @@ int IntegerPt_polygon(vector<Pt>& p) {
     return (area2(p) + IntegerPt_on_polygon(p) + 2) / 2;
 }
 
+// 以 center 为原点，返回 p 所在象限 1..4（逆时针编号）。
+// 边界约定: 坐标轴上的点归入逆时针相邻的那个象限——
+// +x 轴 -> 1，+y 轴 -> 2，-x 轴 -> 3，-y 轴 -> 4；
+// 这样除原点外的所有方向都有唯一象限；p == center 时返回 0。
 int getQuadrant(Pt p, Pt center) {
     double x = p.x - center.x;
     double y = p.y - center.y;
@@ -599,8 +647,10 @@ void polarSort(vector<Pt>& Pts, Pt center) {
     });
 }
 
-//凸包算法
-// 返回逆时针序, 边上的共线点会被删掉(只留角点)
+// 凸包算法 (Andrew 单调链)，O(n log n)
+// 做法: 先按 x 再按 y 排序；顺序扫描维护下凸壳，再逆序扫描维护上凸壳，拼起来。
+//       弹栈条件 Cross <= 0 表示遇到右转或共线，因此边上的共线点会被删掉，只留角点。
+// 返回逆时针序的凸包顶点（从字典序最小的点开始）。
 // !!! 会就地 sort 传入的 p, 打乱调用方的数组; 要保留原顺序就先自己复制一份
 // !!! 坐标绝对值 > 9.4e7 时 Cross 会失真丢顶点, 见 Cross 处的说明
 // 退化情况: 所有点共线或重合时返回 2 个点, 0/1 个点原样返回
@@ -628,6 +678,7 @@ vector<Pt> Andrew(vector<Pt>& p){
 
 }
 
+// 把下标 x 规整到 [0,n)：处理负数与越界，用于凸包上循环移动
 int norm_idx(int x, int n){
     x %= n;
     if(x < 0) x += n;
@@ -661,8 +712,10 @@ int InConvex(Pt q, const vector<Pt>& hull){
     return side == 0 ? 0 : 1;
 }
 
-// 若 q 在凸包外部，返回一个可见边的编号 i，表示边 hull[i] -> hull[i+1] 对 q 可见
-// 若 q 在凸包内部或边界上，返回 -1
+// 若 q 在凸包外部，返回一条可见边的编号 i（边 hull[i] -> hull[i+1] 对 q 可见）；
+// 若 q 在凸包内部或边界上，返回 -1。
+// 做法: 以 hull[0] 为扇心二分定位 q 落在哪个扇形，再判该边可见，O(log n)。
+// 要求 hull 为逆时针凸包且 hull[0] 是字典序最小点（Andrew 的输出满足）。
 int FindVisibleEdge(Pt q, const vector<Pt>& hull){
     int n = hull.size();
     if(n < 3) return -1;
@@ -680,14 +733,16 @@ int FindVisibleEdge(Pt q, const vector<Pt>& hull){
     return Cross(hull[l], hull[(l + 1) % n], q) < 0 ? l : -1;
 }
 
+// 判断第 idx 条边（hull[idx] -> hull[idx+1]）对 q 是否可见。
+// 可见 = q 在该有向边的右侧（顺时针侧），即 Cross < 0；idx 会自动环绕。
 bool VisibleEdge(Pt q, const vector<Pt>& hull, int idx){
     int n = hull.size();
     return Cross(hull[norm_idx(idx, n)], hull[norm_idx(idx + 1, n)], q) < 0;
 }
 
-// 返回外点 q 到已排序凸包的两个切点下标
-// 返回值中的 first, second 分别是可见边链的起点和终点，按凸包逆时针顺序给出
-// 若 q 不在凸包外部，则返回 {-1, -1}
+// 返回外点 q 到凸包的两个切点下标（即两条切线在凸包上的顶点）。
+// first 是可见边链起点对应的切点，second 是可见边链终点之后的那个顶点；
+// 两者按凸包逆时针顺序给出。若 q 不在凸包外部，返回 {-1, -1}；n <= 2 时退化为端点/整条线段。
 pair<int, int> TangentIndexConvex(Pt q, const vector<Pt>& hull){
     int n = hull.size();
     if(n == 0) return {-1, -1};
@@ -711,20 +766,26 @@ pair<int, int> TangentIndexConvex(Pt q, const vector<Pt>& hull){
     return {left_edge, norm_idx(right_edge + 1, n)};
 }
 
+// 返回外点 q 到凸包的两个切点坐标；q 不在凸包外部时（内部/边界）返回两个默认点 Pt()，
+// 调用前若需区分，请先用 TangentIndexConvex 判断 first 是否为 -1。
 pair<Pt, Pt> TangentPointConvex(Pt q, const vector<Pt>& hull){
     auto idx = TangentIndexConvex(q, hull);
     if(idx.first == -1) return {Pt(), Pt()};
     return {hull[idx.first], hull[idx.second]};
 }
 
+// 判断方向 a->b 是否落在“从 a 看凸包的切线锥”内（a 在凸包外时）。
+// 若 a 已在凸包内部/边界上，直接返回 true（任何方向都算）。
+// 用途: 线段与凸包相交的判定——两端点互相在对方的切线锥内，线段才会穿过凸包。
 bool InTangentCone(Pt a, Pt b, const vector<Pt>& hull){
     auto idx = TangentIndexConvex(a, hull);
     if(idx.first == -1) return InConvex(a, hull) >= 0;
     return Cross(a, hull[idx.first], b) <= 0 && Cross(a, hull[idx.second], b) >= 0;
 }
 
-// 判断线段 ab 是否与已排序凸包相交
-// 要求 hull 为逆时针排序的凸包
+// 判断线段 ab 是否与凸包相交（含端点落在内部/边界、相切）。
+// 做法: 任一端点在凸包内 -> 相交；否则线段穿过凸包当且仅当 a、b 分别在对方的切线锥内。
+// 要求 hull 为逆时针排序的凸包；O(log n)。
 bool Intersect_seg_convex(Pt a, Pt b, const vector<Pt>& hull){
     int n = hull.size();
     if(n == 0) return false;
@@ -739,10 +800,23 @@ bool Intersect_seg_convex(Pt a, Pt b, const vector<Pt>& hull){
 ### 3D计算几何
 
 > 三维点积/叉积/夹角 + 增量法三维凸包（O(n²)，法向朝外）。
+> 注释补充：右手系约定、去重/初始四面体/可见面/边界边/新面定向的完整流程、退化情形与非归一化法向量的阈值注意事项。
 
 ```cpp
+// ============================== 3D 计算几何 ==============================
+// 内容: 三维点/向量运算（加减、点乘、叉乘、数乘）、距离、夹角，
+//       以及增量法三维凸包（返回凸包的三角形集合，每个面法向量朝外）。
+// 约定:
+//   * 坐标用 double，不用 #define int long long；eps = 1e-8，sgn 为绝对误差。
+//   * 叉乘 a % b 遵循右手系: 结果同时垂直于 a、b，方向由右手定则确定。
+//   * 三维凸包输出三角形面片（存实际坐标，不合并共面三角形），顶点已按 eps 去重。
+//   * 输入点重复、共线、共面等退化情况会返回空 vector。
+// 复杂度: 凸包期望 O(n^2)（每次插入扫描当前所有面），空间 O(n)。
+// =====================================================================
+
 const double PI = acos(-1);
 
+// 符号函数: |x| < 1e-8 返回 0，否则返回 -1/1；用于叉乘长度、点积的零判定
 int sgn(double x) {
     if (fabs(x) < 1e-8) return 0;
     return x < 0 ? -1 : 1;
@@ -752,23 +826,25 @@ struct Point {
     double x, y, z;
     Point(double x = 0, double y = 0, double z = 0) : x(x), y(y), z(z) {}
 
+    // 向量加减
     Point operator+ (const Point& B) const { return Point(x + B.x, y + B.y, z + B.z); }
     Point operator- (const Point& B) const { return Point(x - B.x, y - B.y, z - B.z); }
 
-    // 点乘
+    // 点乘（内积）: |a||b|cosθ，结果为标量；= 0 表示垂直
     double operator* (const Point& B) const { return x * B.x + y * B.y + z * B.z; }
 
-    // 叉乘
+    // 叉乘（外积）: 结果垂直于 a、b，方向按右手定则；
+    // 模长 = 以 a,b 为邻边的平行四边形面积。三维凸包用它求面法向量。
     Point operator% (const Point& B) const {
         return Point(y * B.z - z * B.y, z * B.x - x * B.z, x * B.y - y * B.x);
     }
 
-    // 数乘
+    // 数乘 / 数除（除数为 0 会得到 inf/nan，调用方保证非零）
     Point operator* (const double& B) const { return Point(x * B, y * B, z * B); }
 
-    // 数除
     Point operator/ (const double& B) const { return Point(x / B, y / B, z / B); }
 
+    // 相等/不等: 用 sgn 做 eps 比较，避免浮点直接 ==
     bool operator== (const Point& B) const {
         return sgn(x - B.x) == 0 && sgn(y - B.y) == 0 && sgn(z - B.z) == 0;
     }
@@ -778,6 +854,9 @@ struct Point {
     }
 };
 
+// 向量长度 |a| 与长度平方 |a|²（比较距离时用平方可避免开方误差）
+// 注意: 参数是非 const 引用（历史写法），不能直接传 a-b 这种临时量；
+//       需要时写 Point d = a - b; 再 dis(d)。
 double dis(Point& a) {
     return sqrt(a * a);
 }
@@ -786,17 +865,19 @@ double ddis(Point& a) {
     return a * a;
 }
 
-// 两点间距离
+// 两点间距离 / 距离平方，同样是非 const 引用参数
 double dis(Point& a, Point& b) {
     return sqrt((a - b) * (a - b));
 }
 
-// 两点间距离平方
 double ddis(Point& a, Point& b) {
     return (a - b) * (a - b);
 }
 
-// 向量夹角（弧度）
+// 两向量夹角（弧度），返回 [0, π]
+// 用 acos 前把 cos 值夹到 [-1,1]，避免浮点误差导致 nan；
+// 零向量会使除法得到 nan，调用前需保证 a、b 非零。
+// 若对接近 0/π 的精度敏感，可改用 atan2(|a×b|, a·b)。
 double Angle(Point a, Point b) {
     double cos_val = a * b / dis(a) / dis(b);
     if (cos_val >  1.0) cos_val =  1.0;
@@ -806,12 +887,15 @@ double Angle(Point a, Point b) {
 
 // -------------------- 三维凸包模板 --------------------
 
+// 凸包的一个三角形面片: a,b,c 是点表下标，按逆时针（从外部看）排列。
+// n 是未归一化的法向量，方向始终指向凸包外部；用 n·(q - p[a]) 的符号判断 q 是否在面外侧。
 struct Face {
     int a, b, c;
     Point n; // 法向量，始终指向凸包外部
     Face(int a = 0, int b = 0, int c = 0) : a(a), b(b), c(c) {}
 };
 
+// 输出用三角形（存实际坐标，不再带下标）
 struct Triangle {
     Point a, b, c;
     Triangle() {}
@@ -819,6 +903,8 @@ struct Triangle {
 };
 
 // 调整面的法向量，使其指向凸包外部。inner 是凸包内部一点。
+// 做法: 先算 n = (b-a)×(c-a)；若 n·(inner-a) > 0，说明 n 指向内侧，
+//       交换 b,c 并把 n 取反。注意 n 不归一化，长度 = 2 倍三角形面积。
 void fix_face(Face& f, const vector<Point>& p, int inner) {
     Point n = (p[f.b] - p[f.a]) % (p[f.c] - p[f.a]);
     // 如果 inner 在法向量正侧，说明法向量指向内部，需要翻转
@@ -829,10 +915,22 @@ void fix_face(Face& f, const vector<Point>& p, int inner) {
     f.n = n;
 }
 
-// 输入点集，返回三维凸包的三角形集合。
-// 如果点数小于 4 或所有点共面/共线，返回空。
+// 增量法三维凸包。
+// 输入: 点集 p（可含重复点、共线点、共面点）；返回凸包的三角形集合，法向朝外。
+// 输出: 不合并共面三角形，因此面数可能多于“最小三角剖分”；顶点坐标已去重。
+// 退化: 点数 < 4、所有点共线或共面时返回空 vector。
+// 步骤:
+//   1) 按 eps 相等去重；
+//   2) 随机打乱，降低增量法的最坏情况概率；
+//   3) 找 4 个不共面的点作为初始四面体；
+//   4) 对剩余每个点，找出它能“看见”的面（点在面外侧），
+//      收集可见面的边界有向边（反向边不在可见面集合中），删掉可见面，
+//      用边界边和新点连成新面，并用内部点把法向修正朝外；
+//   5) 输出所有未退化面。
+// 复杂度: 去重 O(n^2)，增量过程期望 O(n^2)（总面积/面数均 O(n)）。
+// 注意: 点坐标量级很大（>1e8）时叉积/点积的 double 精度会下降，eps 需相应调整。
 vector<Triangle> convex_hull_3d(vector<Point> p) {
-    // 去重
+    // 去重: 用 Point::operator==（eps 比较），O(n^2)。n 很大时可改用排序去重。
     vector<Point> q;
     for (auto& x : p) {
         bool dup = false;
@@ -849,11 +947,12 @@ vector<Triangle> convex_hull_3d(vector<Point> p) {
     int n = (int)p.size();
     if (n < 4) return {};
 
-    // 随机打乱，避免最坏情况
+    // 随机打乱，避免输入顺序导致增量法退化（期望复杂度 O(n^2)）
     mt19937 rng(chrono::steady_clock::now().time_since_epoch().count());
     shuffle(p.begin(), p.end(), rng);
 
     // 找初始四面体：4 个不共面的点
+    // i1: 与 i0 不同的点；i2: 与 i0,i1 不共线的点；i3: 不在 i0,i1,i2 平面上的点。
     int i0 = 0, i1 = -1, i2 = -1, i3 = -1;
 
     for (int i = 1; i < n; i++) {
@@ -897,22 +996,25 @@ vector<Triangle> convex_hull_3d(vector<Point> p) {
     p.swap(pts);
     n = (int)p.size();
 
-    // 初始四面体的 4 个面，法向量全部朝外
+    // 初始四面体的 4 个面，法向量全部朝外。
+    // 每个面用另外三个点之一作为“内部点”来定方向（四面体内部点必在面内侧）。
     vector<Face> faces;
     faces.emplace_back(0, 1, 2); fix_face(faces.back(), p, 3);
     faces.emplace_back(0, 1, 3); fix_face(faces.back(), p, 2);
     faces.emplace_back(0, 2, 3); fix_face(faces.back(), p, 1);
     faces.emplace_back(1, 2, 3); fix_face(faces.back(), p, 0);
 
-    // 凸包内部一点，用于判断新面的法向量方向
+    // 凸包内部一点（初始四面体质心，之后始终在凸包内部），用于判断新面的法向
     Point center = (p[0] + p[1] + p[2] + p[3]) / 4.0;
 
-    // 增量加入剩余点
+    // 增量加入剩余点: 每个点只会“撑大”凸包，删除它可见的面，再用边界边补新面
     for (int i = 4; i < n; i++) {
         vector<int> visible(faces.size(), 0);
         bool any = false;
 
-        // 找出当前点能“看见”的面
+        // 找出当前点能“看见”的面: 点在面外侧 <=> n·(p_i - p_a) > 0。
+        // 注意 n 未归一化（长度是 2 倍面积），这里的 1e-8 不是几何距离阈值；
+        // 坐标量级变化大时应改成 n·(...) > eps * |n|。
         for (int j = 0; j < (int)faces.size(); j++) {
             if (faces[j].n * (p[i] - p[faces[j].a]) > 1e-8) {
                 visible[j] = 1;
@@ -920,9 +1022,9 @@ vector<Triangle> convex_hull_3d(vector<Point> p) {
             }
         }
 
-        if (!any) continue; // 点在当前凸包内部
+        if (!any) continue; // 点在当前凸包内部或表面上，不改变凸包
 
-        // 收集所有可见面的有向边
+        // 收集所有可见面的有向边（每个面按逆时针给出三条边）
         map<pair<int, int>, int> edge_cnt;
         for (int j = 0; j < (int)faces.size(); j++) {
             if (!visible[j]) continue;
@@ -932,7 +1034,8 @@ vector<Triangle> convex_hull_3d(vector<Point> p) {
             edge_cnt[{c, a}]++;
         }
 
-        // 边界边：反向边不在可见面边集合中
+        // 边界边：反向边不在可见面边集合中。这些边构成可见区域的“地平线”，
+        // 接下来用它们和新点 i 组成一圈新三角形。
         vector<pair<int, int>> border;
         for (auto& kv : edge_cnt) {
             int u = kv.first.first;
@@ -942,7 +1045,7 @@ vector<Triangle> convex_hull_3d(vector<Point> p) {
             }
         }
 
-        // 删除可见面
+        // 删除可见面，保留其余面
         vector<Face> new_faces;
         for (int j = 0; j < (int)faces.size(); j++) {
             if (!visible[j]) new_faces.push_back(faces[j]);
@@ -954,9 +1057,9 @@ vector<Triangle> convex_hull_3d(vector<Point> p) {
             Face f(u, v, i);
             f.n = (p[f.b] - p[f.a]) % (p[f.c] - p[f.a]);
 
-            if (sgn(dis(f.n)) == 0) continue; // 退化面
+            if (sgn(dis(f.n)) == 0) continue; // 三点共线，退化面直接丢弃
 
-            // 确保法向量朝外
+            // 用内部点 center 确保法向量朝外
             if (f.n * (center - p[f.a]) > 0) {
                 swap(f.b, f.c);
                 f.n = f.n * -1.0;
@@ -967,7 +1070,8 @@ vector<Triangle> convex_hull_3d(vector<Point> p) {
         faces.swap(new_faces);
     }
 
-    // 转成三角形集合
+    // 转成三角形集合（p 的前 4 个点是初始四面体，其余按加入顺序排列）
+    // 过滤掉法向量长度为 0 的退化面；输出顺序不保证，共面三角形也不合并。
     vector<Triangle> ans;
     for (auto& f : faces) {
         if (sgn(dis(f.n)) == 0) continue; // 过滤退化面
@@ -976,6 +1080,7 @@ vector<Triangle> convex_hull_3d(vector<Point> p) {
     return ans;
 }
 
+// 示例入口（默认不做事，方便直接编译本文件做语法检查）
 int main() {
     // 示例：读入点集并求三维凸包
     // vector<Point> pts = { ... };
