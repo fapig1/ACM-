@@ -1,3 +1,4 @@
+//最小割
 struct Dinic {
     struct Edge {
         int to, rev;

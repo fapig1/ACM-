@@ -1,3 +1,4 @@
+//最小费用最大流
 struct MinCostMaxFlow {
     struct Edge {
         int to, rev;

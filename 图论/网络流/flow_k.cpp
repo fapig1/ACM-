@@ -1,3 +1,4 @@
+//指定流量K的最小费用最大流
 // 返回 {实际流量, 最小费用}
 // 如果 flow < k，说明无法达到指定流量 k
 pair<ll, ll> minCostFlow(int s, int t, ll k) {

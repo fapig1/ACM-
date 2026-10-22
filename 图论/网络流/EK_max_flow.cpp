@@ -1,3 +1,4 @@
+//Ek最大流
 struct EdmondsKarp {
     struct Edge {
         int to, rev;
