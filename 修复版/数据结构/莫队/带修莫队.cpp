@@ -1,93 +1,68 @@
 #include <bits/stdc++.h>
 using namespace std;
-#define int long long
-#define double long double
+using ll = long long;
 
-int n, m, B;
 // 【速查】带修莫队（离线，支持单点修改）
-// 用途: 普通莫队 + 时间维；本例: 区间不同数个数 + 单点改值（P1903）
-// 用法: 询问记 (l, r, 之前的修改数 t)，修改记 (pos, x)；改 add/del 即可套其他题
-// 复杂度: O(n^{5/3})，B = n^{2/3}；下标 0-based
-struct Q{
-    int l, r, t, id;
+// 用途: 普通莫队 + 时间维；本例: 区间不同数个数 + 单点改值（P1903 数颜色）
+// 用法: MoUpd mo;  mo.a = 初始数组（0-based）;  mo.cnt.assign(值域, 0);
+//       mo.addQuery(l, r)（0-based 闭区间，自动记录"之前已有几次修改"）;  mo.addUpdate(pos, x);  按输入顺序调用
+//       auto res = mo.solve();   // res[i] = 第 i 个询问的答案
+// 改题: 只改"按题意修改"那一段（add / del 按"值"维护 res）
+// 复杂度: O(n^{5/3})，块长 B = n^{2/3}
+struct MoUpd {
+    // ---- 按题意修改 ----
+    vector<int> a, cnt;
+    ll res = 0;                                // 当前区间不同数的个数
+    void add(int val) { if (cnt[val]++ == 0) res++; }
+    void del(int val) { if (--cnt[val] == 0) res--; }
+    // --------------------
+    struct Q { int l, r, t, id; };
+    vector<Q> qs;
+    vector<pair<int, int>> ups;                // (位置, 新值)
+    void addQuery(int l, int r) { qs.push_back({l, r, (int)ups.size(), (int)qs.size()}); }
+    void addUpdate(int pos, int x) { ups.push_back({pos, x}); }
 
-    bool operator<(const Q& b)const{
-        if(l / B != b.l / B) return l / B < b.l / B;
-        if(r / B != b.r / B) return r / B < b.r / B;
-        return t < b.t;
+    vector<ll> solve() {
+        int n = a.size();
+        int B = max(1, (int)pow(n, 2.0 / 3.0));
+        sort(qs.begin(), qs.end(), [&](const Q& x, const Q& y) {
+            if (x.l / B != y.l / B) return x.l / B < y.l / B;
+            if (x.r / B != y.r / B) return x.r / B < y.r / B;
+            return x.t < y.t;
+        });
+        vector<ll> ans(qs.size());
+        int l = 0, r = -1, t = 0;
+        auto apply = [&](int k) {              // 执行 / 撤销第 k 次修改（交换后再调用一次即撤销）
+            auto& [pos, x] = ups[k];
+            if (l <= pos && pos <= r) { del(a[pos]); add(x); }
+            swap(a[pos], x);
+        };
+        for (auto& q : qs) {
+            while (l > q.l) add(a[--l]);
+            while (r < q.r) add(a[++r]);
+            while (l < q.l) del(a[l++]);
+            while (r > q.r) del(a[r--]);
+            while (t < q.t) apply(t++);
+            while (t > q.t) apply(--t);
+            ans[q.id] = res;
+        }
+        return ans;
     }
-
-    Q(int l, int r, int t, int id) : l(l), r(r), t(t), id(id) {}
 };
 
-struct OP{
-    int p, x;
-
-    OP(int p, int x): p(p), x(x) {}
-};
-
-vector<int> a;
-vector<Q> ask;
-vector<OP> op; 
-vector<int> cnt(1000006);
-int res = 0;
-
-void add(int val){
-    if(cnt[val] == 0) res++;
-    cnt[val]++; 
-}
-
-void del(int val){
-    cnt[val]--;
-    if(cnt[val] == 0) res--;
-}
-
-void solve(){
+// 示例（P1903）: 读 n m、n 个数、m 个操作（Q l r 询问 / R p x 修改，1-based），输出每个询问的不同数个数
+void solve() {
+    int n, m;
     cin >> n >> m;
-    a.resize(n);
-    for(int i = 0; i < n; i++){
-        cin >> a[i];
-    }
-
-    for(int i = 0; i < m; i++){
-        char c;
-        int x, y;
+    MoUpd mo;
+    mo.a.resize(n);
+    for (auto& x : mo.a) cin >> x;
+    mo.cnt.assign(1000006, 0);                 // 值域上限；值很大时先离散化（含修改值）
+    for (int i = 0; i < m; i++) {
+        char c; int x, y;
         cin >> c >> x >> y;
-        if(c == 'Q'){
-            ask.push_back(Q(x - 1, y - 1, op.size(), ask.size()));
-        } else {
-            op.push_back(OP(x - 1, y));
-        }
+        if (c == 'Q') mo.addQuery(x - 1, y - 1);
+        else mo.addUpdate(x - 1, y);
     }
-    B = pow(n, 2.0 / 3.0);
-    sort(ask.begin(), ask.end());
-    vector<int> ans(ask.size());
-    int curT = 0, l = 0, r = -1;
-    for(int i = 0; i < ask.size(); i++){
-        auto[ql, qr, t, id] = ask[i];
-        while(l > ql) add(a[--l]);
-        while(r < qr) add(a[++r]);
-        while(l < ql) del(a[l++]);
-        while(r > qr) del(a[r--]);
-        while(curT < t){
-            int pos = op[curT].p;
-            if(l <= pos && pos <= r){
-                del(a[pos]), add(op[curT].x);
-            }
-            swap(a[pos], op[curT].x);
-            curT++;
-        }
-        while(curT > t){
-            curT--;
-            int pos = op[curT].p;
-            if(l <= pos && pos <= r){
-                del(a[pos]), add(op[curT].x);
-            }     
-            swap(a[pos], op[curT].x);
-        }
-        ans[id] = res;
-    }
-    for(int i : ans) cout << i << '\n';
-
+    for (ll v : mo.solve()) cout << v << '\n';
 }
-

@@ -644,262 +644,104 @@ struct LCSegFrac {
 
 ### 主席树（可持久化数组）
 
-> 【本次修复】节点池 N*40(640MB) 改为 N*25(400MB)。P3919 版本语义：每个操作（含查询）都产生新版本。
+> 结构体 PST（vector 节点池，按需 reserve），含可持久化数组（P3919：每个操作含查询都产生新版本）与静态区间第 k 小。
+> 【10.22 结构体封装】原全局变量 + 全局函数改为结构体 / 传参函数，用法见块内速查卡。
 
 ```cpp
-#define ll long long
-#define endl '\n'
+using ll = long long;
 
-// 【速查】主席树（可持久化数组 / 可持久化线段树）
-// 用途: 每次操作基于某个历史版本：单点改、单点查（P3919）；Pseg 里附区间第 k 小写法
-// 用法: root[0] = build(1, 1, n);  root[i] = update(root[ver], 1, n, pos, v);  query(root[ver], 1, n, pos)
-//       只查询的操作也要 root[i] = root[ver]
-// 复杂度: 每次 O(log n) 时间 + O(log n) 新节点；节点池 N*25，大约 n + q·log n 个
-//https://www.luogu.com.cn/problem/P3919
-//主席树单点修改单点查询
+// 【速查】主席树（可持久化线段树）
+// 用途: ① 可持久化数组：基于任意历史版本单点改 / 单点查（P3919）
+//       ② 静态区间第 k 小：按前缀建权值线段树，两个版本相减（P3834）
+// 用法: PST t(预计节点数);   // 节点数 ≈ 2n + 更新次数 × (log n + 2)；只是 reserve，超了也能用（会扩容）
+//   ① int r0 = t.build(1, n, a);  int r1 = t.update(r0, 1, n, pos, v);  t.query(r1, 1, n, pos)
+//      每个版本就是一个根编号，自己用 vector<int> root 存；"只查询也生成新版本"时 root[i] = root[ver]
+//   ② 值离散化到 1..m；root[0] = 0（空树）；root[i] = t.insert(root[i-1], 1, m, id(a[i]));
+//      t.kth(root[l-1], root[r], 1, m, k) -> 第 k 小的离散化编号
+// 复杂度: 每次 O(log n) 时间 + O(log n) 个新节点
+// 10.22: 原版是全局 tree[N*25] 数组 + 全局函数（另有一份写在注释里的第 k 小），合并为一个结构体
+struct PST {
+    struct Node { int l, r; ll val; };       // val: ① 中为叶子的值，② 中为该值域区间的数的个数
+    vector<Node> t;
 
-const int N=1e6+5;
+    PST(int reserveNodes = 0) { t.reserve(reserveNodes + 1); t.push_back({0, 0, 0}); }   // 0 号为空节点
+    int clone(int u) { t.push_back(t[u]); return (int)t.size() - 1; }
 
-struct node{
-    int l,r;
-    ll val;
-}tree[N*25];
-//节点数按 (n + q·log n) 估计: n=1e6,q=1e6 时 ≈ 1e6+2e7 = 2.1e7, N*25=2.5e7 留有余量
-//原版 N*40 = 4e7 节点 × 16B = 640MB, 512MB 内存限制的评测机会 MLE
-
-vector<ll> vec(N);
-vector<int> root(N);//root表示第i个版本的根节点的index
-
-int top=0;
-//在更新操作时进行动态开点的函数
-int clone(int ind){
-    top++;
-    tree[top]=tree[ind];
-    return top;
-}
-
-//建树
-int build(int ind,int l,int r){
-    top++;
-    ind=top;
-
-    if(l==r){
-        tree[ind].val=vec[l];
-        return ind;
+    // ---- ① 可持久化数组 ----
+    int build(int l, int r, const vector<ll>& a) {   // a 为 1-based
+        int u = clone(0);
+        if (l == r) { t[u].val = a[l]; return u; }
+        int mid = (l + r) / 2;
+        int lc = build(l, mid, a), rc = build(mid + 1, r, a);
+        t[u].l = lc; t[u].r = rc;               // 先算完孩子再写，避免 push_back 扩容后引用失效
+        return u;
     }
-
-    int mid=(l+r)/2;
-    //实际上更新点可以有很多种方式，我使用的方式是为了统一更新建树和查询函数参数的格式
-    //build里面的第一个参数意义不大，为了统一参数那么写的，写一样的就行
-    tree[ind].l = build(tree[ind].l,l,mid);
-    tree[ind].r = build(tree[ind].r,mid+1,r);
-    return ind;
-}
-
-//更新
-int update(int ind,int l,int r,int t,ll v){
-    ind=clone(ind);
-
-    if(l==r){
-        tree[ind].val=v;
-        return ind;
+    int update(int u, int l, int r, int pos, ll v) {
+        int nu = clone(u);
+        if (l == r) { t[nu].val = v; return nu; }
+        int mid = (l + r) / 2;
+        if (pos <= mid) { int c = update(t[nu].l, l, mid, pos, v); t[nu].l = c; }
+        else { int c = update(t[nu].r, mid + 1, r, pos, v); t[nu].r = c; }
+        return nu;
     }
-    int mid=(l+r)/2;
-    if(t<=mid){
-        tree[ind].l=update(tree[ind].l,l,mid,t,v);
-    }else{
-        tree[ind].r=update(tree[ind].r,mid+1,r,t,v);
-    }
-    return ind;
-}
-
-//查询
-ll query(int ind,int l,int r,int t){
-    if(l==r){
-        return tree[ind].val; 
-    }
-
-    int mid=(l+r)/2;
-    if(t<=mid){
-        return query(tree[ind].l,l,mid,t);
-    }else{
-        return query(tree[ind].r,mid+1,r,t);
-    }
-}
-
-int n,q;
-void solve(){
-    cin>>n>>q;
-
-    for(int i = 1;i <= n;i ++){
-        cin>>vec[i];
-    }
-
-    root[0]=build(1,1,n);
-    for(int i=1;i<=q;i++){
-        int version;
-        int command;
-        cin>>version>>command;
-        if(command==1){
-            int t;
-            ll v;
-            cin>>t>>v;
-            root[i]=update(root[version],1,n,t,v);
-        }else{
-            int t;
-            cin>>t;
-            ll ans=query(root[version],1,n,t);
-            cout<<ans<<endl;
-            root[i]=root[version];
-        }
-
-    }
-
-}
-
-
-// 【速查】主席树（结构体封装版，含区间第 k 小）
-// 用法: PSeg pst;（放全局，别放栈上）  pst.root[0] = pst.build(0, 1, n, vec) 或 buildEmpty(0, 1, m)
-//       pst.root[i] = pst.update(pst.root[i-1], 1, n, pos, v);  pst.query(pst.root[ver], 1, n, pos)
-//       区间第 k 小: 打开注释里的 insert / queryKth，值先离散化，queryKth(root[l-1], root[r], 1, m, k)
-// 复杂度: 每次 O(log n)
-namespace Pseg{
-    const int N = 1e6 + 5;      // 版本数上限
-    const int M = N * 25;       // 节点数上限，按需调整
-
-    struct PSeg{
-        struct node{
-            int l, r;
-            ll val;             // 按题型可改成 cnt
-        }tree[M];
-
-        int root[N];            // root[i] 表示第 i 个版本的根
-        int top;                // 当前节点编号
-
-        PSeg(){
-            top = 0;
-        }
-
-        // 动态开点：复制旧节点，返回新节点编号
-        int clone(int t){
-            top++;
-            tree[top] = tree[t];
-            return top;
-        }
-
-        // 建树：带初值，建版本 0
-        // vec 是初始数组，下标从 1 开始
-        int build(int t, int l, int r, const vector<ll>& vec){
-            t = ++top;
-            if(l == r){
-                tree[t].val = vec[l];
-                return t;
-            }
+    ll query(int u, int l, int r, int pos) {
+        while (l < r) {
             int mid = (l + r) / 2;
-            tree[t].l = build(tree[t].l, l, mid, vec);
-            tree[t].r = build(tree[t].r, mid + 1, r, vec);
-            return t;
+            if (pos <= mid) u = t[u].l, r = mid;
+            else u = t[u].r, l = mid + 1;
         }
+        return t[u].val;
+    }
 
-        // 建空树：所有权值为 0
-        int buildEmpty(int t, int l, int r){
-            t = ++top;
-            tree[t].val = 0;
-            if(l == r) return t;
+    // ---- ② 静态区间第 k 小 ----
+    int insert(int u, int l, int r, int pos) {      // 值 pos 的个数 +1，返回新根
+        int nu = clone(u);
+        t[nu].val++;
+        if (l == r) return nu;
+        int mid = (l + r) / 2;
+        if (pos <= mid) { int c = insert(t[nu].l, l, mid, pos); t[nu].l = c; }
+        else { int c = insert(t[nu].r, mid + 1, r, pos); t[nu].r = c; }
+        return nu;
+    }
+    int kth(int u, int v, int l, int r, ll k) {     // 版本 v 减版本 u 的第 k 小
+        while (l < r) {
             int mid = (l + r) / 2;
-            tree[t].l = buildEmpty(tree[t].l, l, mid);
-            tree[t].r = buildEmpty(tree[t].r, mid + 1, r);
-            return t;
+            ll leftCnt = t[t[v].l].val - t[t[u].l].val;
+            if (k <= leftCnt) u = t[u].l, v = t[v].l, r = mid;
+            else k -= leftCnt, u = t[u].r, v = t[v].r, l = mid + 1;
         }
+        return l;
+    }
+};
 
-        // 单点修改：在 t 版本基础上，把位置 pos 改成 v
-        int update(int t, int l, int r, int pos, ll v){
-            t = clone(t);
-            if(l == r){
-                tree[t].val = v;
-                return t;
-            }
-            int mid = (l + r) / 2;
-            if(pos <= mid)
-                tree[t].l = update(tree[t].l, l, mid, pos, v);
-            else
-                tree[t].r = update(tree[t].r, mid + 1, r, pos, v);
-            return t;
-        }
-
-        // 单点查询：查询 t 版本中位置 pos 的值
-        ll query(int t, int l, int r, int pos){
-            if(l == r) return tree[t].val;
-            int mid = (l + r) / 2;
-            if(pos <= mid)
-                return query(tree[t].l, l, mid, pos);
-            else
-                return query(tree[t].r, mid + 1, r, pos);
-        }
-
-        // 针对于区间第K小问题的插入
-        // int insert(int t, int l, int r, int pos){
-        //     t = clone(t);
-        //     tree[t].val++;
-        //     if(l == r) return t;
-        //     int mid = (l + r) / 2;
-        //     if(pos <= mid)
-        //         tree[t].l = insert(tree[t].l, l, mid, pos);
-        //     else
-        //         tree[t].r = insert(tree[t].r, mid + 1, r, pos);
-        //     return t;
-        // }
-
-        // 针对于区间第K小问题的查询，返回ind
-        // int queryKth(int u, int v, int l, int r, int k){
-        //     if(l == r) return l;
-        //     int mid = (l + r) / 2;
-        //     int leftCnt = tree[tree[v].l].val - tree[tree[u].l].val;
-        //     if(k <= leftCnt)
-        //         return queryKth(tree[u].l, tree[v].l, l, mid, k);
-        //     else
-        //         return queryKth(tree[u].r, tree[v].r, mid + 1, r, k - leftCnt);
-        // }
-    };
-
-    // 第K小使用示例
-    // int n, q;
-    // vector<ll> a, vec;
-
-    // 放全局不会爆栈
-    // PSeg pst;
-
-    // void solve(){
-    //     // 快捷清空
-    //     pst.top=0;
-    
-    //     cin >> n >> q;
-    //     a.assign(n + 1, 0);
-    //     for(int i = 1; i <= n; i++){
-    //         cin >> a[i];
-    //         vec.push_back(a[i]);
-    //     }
-
-    //     sort(vec.begin(), vec.end());
-    //     vec.erase(unique(vec.begin(), vec.end()), vec.end());
-    //     int m = vec.size();
-
-    //     //这句话很关键！！！！！
-    //     pst.root[0] = pst.buildEmpty(0, 1, m);
-
-    //     for(int i = 1; i <= n; i++){
-    //         int pos = lower_bound(vec.begin(), vec.end(), a[i]) - vec.begin() + 1;
-    //         pst.root[i] = pst.insert(pst.root[i-1], 1, m, pos);
-    //     }
-
-    //     while(q--){
-    //         int l, r, k;
-    //         cin >> l >> r >> k;
-    //         int idx = pst.queryKth(pst.root[l-1], pst.root[r], 1, m, k);
-    //         cout << vec[idx - 1] << endl;
-    //     }
-    // }
+// 示例（P3919）: 读 n q 和初始数组；每个操作 "ver 1 pos v"（基于 ver 改值）或 "ver 2 pos"（查值）
+//   第 i 个操作生成版本 i（查询操作的新版本 = 原版本）
+void solve() {
+    int n, q;
+    cin >> n >> q;
+    vector<ll> a(n + 1);
+    for (int i = 1; i <= n; i++) cin >> a[i];
+    PST t(2 * n + q * (__lg(max(n, 1)) + 2));   // 建树 2n-1 个点 + 每次修改 ⌈log n⌉+1 个点
+    vector<int> root(q + 1);
+    root[0] = t.build(1, n, a);
+    for (int i = 1; i <= q; i++) {
+        int ver, op, pos;
+        cin >> ver >> op >> pos;
+        if (op == 1) { ll v; cin >> v; root[i] = t.update(root[ver], 1, n, pos, v); }
+        else { cout << t.query(root[ver], 1, n, pos) << '\n'; root[i] = root[ver]; }
+    }
 }
+
+// 第 k 小用法示例（P3834）:
+// void solveKth() {
+//     int n, q; cin >> n >> q;
+//     vector<ll> a(n + 1); for (int i = 1; i <= n; i++) cin >> a[i];
+//     vector<ll> vals(a.begin() + 1, a.end()); sort(vals.begin(), vals.end());
+//     vals.erase(unique(vals.begin(), vals.end()), vals.end()); int m = vals.size();
+//     PST t(n * 20); vector<int> root(n + 1, 0);
+//     for (int i = 1; i <= n; i++) root[i] = t.insert(root[i - 1], 1, m, lower_bound(vals.begin(), vals.end(), a[i]) - vals.begin() + 1);
+//     while (q--) { int l, r, k; cin >> l >> r >> k; cout << vals[t.kth(root[l - 1], root[r], 1, m, k) - 1] << '\n'; }
+// }
 ```
 
 ### ST表
@@ -1963,304 +1805,236 @@ void solve(){
 ### 普通莫队
 
 > 【本次修复】补离散化（原版 a_i>5e4 即段错误）。
+> 【10.22 结构体封装】原全局变量 + 全局函数改为结构体 / 传参函数，用法见块内速查卡。
 
 ```cpp
-#define int long long
-#define double long double
-
-const int maxn = 5e4;
-int B;
-int cur = 0;
+using ll = long long;
 
 // 【速查】普通莫队（离线区间查询，无修改）
-// 用途: 区间信息能 O(1) 加/删一个元素时，离线回答 m 个区间询问。本例: 区间内任取两数相同的概率（P1494）
-// 用法: 改 add(pos) / del(pos) 维护 cur；询问按 (l/B, 奇偶 r) 排序后移动指针
-// 复杂度: O(n√m)，B = n/√(2m/3)
-struct Q{
-    int l, r, id;
-
-    bool operator<(const Q& b)const{
-        int pos1 = l / B, pos2 = b.l / B;
-        if(pos1 != pos2) return pos1 < pos2;
-        if(pos1 & 1) return r < b.r;
-        return r > b.r;
+// 用途: 区间信息能 O(1) 加 / 删一个元素时，离线回答 m 个区间询问。本例: 区间内任取两数相同的方案数（P1494）
+// 用法: Mo mo;  mo.a = 数组（0-based，值已离散化到 0..K-1）;  mo.cnt.assign(K, 0);
+//       auto res = mo.solve(qs);   // qs[i] = {l, r}（0-based 闭区间），res[i] = 该询问时的 mo.cur
+// 改题: 只改"按题意修改"那一段（add / del 维护 cur）
+// 复杂度: O(n√m)，块长 B = n / √(2m/3)，奇偶排序
+struct Mo {
+    // ---- 按题意修改 ----
+    vector<int> a, cnt;
+    ll cur = 0;                                // 当前区间内相同数对的个数 Σ C(cnt, 2)
+    void add(int pos) { cur += cnt[a[pos]]; cnt[a[pos]]++; }
+    void del(int pos) { cnt[a[pos]]--; cur -= cnt[a[pos]]; }
+    // --------------------
+    vector<ll> solve(const vector<pair<int, int>>& qs) {
+        int n = a.size(), m = qs.size();
+        int B = max(1, (int)(n / sqrt(max(1.0, m * 2.0 / 3.0))));
+        vector<int> ord(m);
+        iota(ord.begin(), ord.end(), 0);
+        sort(ord.begin(), ord.end(), [&](int x, int y) {
+            int bx = qs[x].first / B, by = qs[y].first / B;
+            if (bx != by) return bx < by;
+            return (bx & 1) ? qs[x].second < qs[y].second : qs[x].second > qs[y].second;
+        });
+        vector<ll> res(m);
+        int l = 0, r = -1;
+        for (int id : ord) {
+            auto [ql, qr] = qs[id];
+            while (l > ql) add(--l);              // 先扩张再收缩，保证区间不为负长度
+            while (r < qr) add(++r);
+            while (l < ql) del(l++);
+            while (r > qr) del(r--);
+            res[id] = cur;
+        }
+        return res;
     }
 };
 
-vector<int> cnt(maxn + 5);
-vector<int> a(maxn + 5);
-vector<Q> ask(maxn + 5);
-vector<pair<int,int>> ans(maxn + 5);
-
-int l = 1, r = 0;
-
-void add(int pos){
-    int val = a[pos];
-    cur += cnt[val];
-    cnt[val]++; 
-}
-
-void del(int pos){
-    int val = a[pos];
-    cnt[val]--;
-    cur -= cnt[val];
-}
-
-void solve(){
+// 示例（P1494 小 Z 的袜子）: 读 n m、n 个数、m 个询问 (l r, 1-based)，输出最简分数"相同 / 总方案"
+void solve() {
     int n, m;
     cin >> n >> m;
-    B = max(1.0, n / sqrt(m * 2.0 / 3.0));
-    for(int i = 1; i <= n; i++){
-        cin >> a[i];
+    Mo mo;
+    mo.a.resize(n);
+    for (auto& x : mo.a) cin >> x;
+    vector<int> all = mo.a;                    // 离散化：值域可能到 1e9
+    sort(all.begin(), all.end());
+    all.erase(unique(all.begin(), all.end()), all.end());
+    for (auto& x : mo.a) x = lower_bound(all.begin(), all.end(), x) - all.begin();
+    mo.cnt.assign(all.size(), 0);
+    vector<pair<int, int>> qs(m);
+    for (auto& [l, r] : qs) { cin >> l >> r; l--; r--; }
+    auto res = mo.solve(qs);
+    for (int i = 0; i < m; i++) {
+        ll len = qs[i].second - qs[i].first + 1, num = res[i], den = len * (len - 1) / 2;
+        if (num == 0) { cout << "0/1\n"; continue; }
+        ll g = __gcd(num, den);
+        cout << num / g << '/' << den / g << '\n';
     }
-    // 离散化: a_i 值域可能很大(如 1e9), cnt 数组只按种类数开
-    {
-        vector<int> all(a.begin() + 1, a.begin() + n + 1);
-        sort(all.begin(), all.end());
-        all.erase(unique(all.begin(), all.end()), all.end());
-        for(int i = 1; i <= n; i++)
-            a[i] = lower_bound(all.begin(), all.end(), a[i]) - all.begin() + 1;
-    }
-    for(int i = 0; i < m; i++){
-        cin >> ask[i].l >> ask[i].r;
-        ask[i].id = i;
-    }
-    sort(ask.begin(), ask.begin() + m);
-    for(int i = 0; i < m; i++){
-        auto[ql, qr, id] = ask[i];
-        while(l > ql) add(--l);
-        while(r < qr) add(++r);
-        while(l < ql) del(l++);
-        while(r > qr) del(r--);
-        int len = r - l + 1;
-        int fm = cur == 0 ? 1 : len * (len - 1) / 2;
-        int g = cur == 0 ? 1 : __gcd(cur, fm);
-        ans[id] = {cur / g, fm / g};
-    }
-    for(int i = 0; i < m; i++){
-        cout << ans[i].first << '/' << ans[i].second << '\n';
-    }
-
-
 }
 ```
 
 ### 带修莫队
 
 > 三维排序 (l块,r块,t)；值域≤1e6，更大需自行离散化。
+> 【10.22 结构体封装】原全局变量 + 全局函数改为结构体 / 传参函数，用法见块内速查卡。
 
 ```cpp
-#define int long long
-#define double long double
+using ll = long long;
 
-int n, m, B;
 // 【速查】带修莫队（离线，支持单点修改）
-// 用途: 普通莫队 + 时间维；本例: 区间不同数个数 + 单点改值（P1903）
-// 用法: 询问记 (l, r, 之前的修改数 t)，修改记 (pos, x)；改 add/del 即可套其他题
-// 复杂度: O(n^{5/3})，B = n^{2/3}；下标 0-based
-struct Q{
-    int l, r, t, id;
+// 用途: 普通莫队 + 时间维；本例: 区间不同数个数 + 单点改值（P1903 数颜色）
+// 用法: MoUpd mo;  mo.a = 初始数组（0-based）;  mo.cnt.assign(值域, 0);
+//       mo.addQuery(l, r)（0-based 闭区间，自动记录"之前已有几次修改"）;  mo.addUpdate(pos, x);  按输入顺序调用
+//       auto res = mo.solve();   // res[i] = 第 i 个询问的答案
+// 改题: 只改"按题意修改"那一段（add / del 按"值"维护 res）
+// 复杂度: O(n^{5/3})，块长 B = n^{2/3}
+struct MoUpd {
+    // ---- 按题意修改 ----
+    vector<int> a, cnt;
+    ll res = 0;                                // 当前区间不同数的个数
+    void add(int val) { if (cnt[val]++ == 0) res++; }
+    void del(int val) { if (--cnt[val] == 0) res--; }
+    // --------------------
+    struct Q { int l, r, t, id; };
+    vector<Q> qs;
+    vector<pair<int, int>> ups;                // (位置, 新值)
+    void addQuery(int l, int r) { qs.push_back({l, r, (int)ups.size(), (int)qs.size()}); }
+    void addUpdate(int pos, int x) { ups.push_back({pos, x}); }
 
-    bool operator<(const Q& b)const{
-        if(l / B != b.l / B) return l / B < b.l / B;
-        if(r / B != b.r / B) return r / B < b.r / B;
-        return t < b.t;
+    vector<ll> solve() {
+        int n = a.size();
+        int B = max(1, (int)pow(n, 2.0 / 3.0));
+        sort(qs.begin(), qs.end(), [&](const Q& x, const Q& y) {
+            if (x.l / B != y.l / B) return x.l / B < y.l / B;
+            if (x.r / B != y.r / B) return x.r / B < y.r / B;
+            return x.t < y.t;
+        });
+        vector<ll> ans(qs.size());
+        int l = 0, r = -1, t = 0;
+        auto apply = [&](int k) {              // 执行 / 撤销第 k 次修改（交换后再调用一次即撤销）
+            auto& [pos, x] = ups[k];
+            if (l <= pos && pos <= r) { del(a[pos]); add(x); }
+            swap(a[pos], x);
+        };
+        for (auto& q : qs) {
+            while (l > q.l) add(a[--l]);
+            while (r < q.r) add(a[++r]);
+            while (l < q.l) del(a[l++]);
+            while (r > q.r) del(a[r--]);
+            while (t < q.t) apply(t++);
+            while (t > q.t) apply(--t);
+            ans[q.id] = res;
+        }
+        return ans;
     }
-
-    Q(int l, int r, int t, int id) : l(l), r(r), t(t), id(id) {}
 };
 
-struct OP{
-    int p, x;
-
-    OP(int p, int x): p(p), x(x) {}
-};
-
-vector<int> a;
-vector<Q> ask;
-vector<OP> op; 
-vector<int> cnt(1000006);
-int res = 0;
-
-void add(int val){
-    if(cnt[val] == 0) res++;
-    cnt[val]++; 
-}
-
-void del(int val){
-    cnt[val]--;
-    if(cnt[val] == 0) res--;
-}
-
-void solve(){
+// 示例（P1903）: 读 n m、n 个数、m 个操作（Q l r 询问 / R p x 修改，1-based），输出每个询问的不同数个数
+void solve() {
+    int n, m;
     cin >> n >> m;
-    a.resize(n);
-    for(int i = 0; i < n; i++){
-        cin >> a[i];
-    }
-
-    for(int i = 0; i < m; i++){
-        char c;
-        int x, y;
+    MoUpd mo;
+    mo.a.resize(n);
+    for (auto& x : mo.a) cin >> x;
+    mo.cnt.assign(1000006, 0);                 // 值域上限；值很大时先离散化（含修改值）
+    for (int i = 0; i < m; i++) {
+        char c; int x, y;
         cin >> c >> x >> y;
-        if(c == 'Q'){
-            ask.push_back(Q(x - 1, y - 1, op.size(), ask.size()));
-        } else {
-            op.push_back(OP(x - 1, y));
-        }
+        if (c == 'Q') mo.addQuery(x - 1, y - 1);
+        else mo.addUpdate(x - 1, y);
     }
-    B = pow(n, 2.0 / 3.0);
-    sort(ask.begin(), ask.end());
-    vector<int> ans(ask.size());
-    int curT = 0, l = 0, r = -1;
-    for(int i = 0; i < ask.size(); i++){
-        auto[ql, qr, t, id] = ask[i];
-        while(l > ql) add(a[--l]);
-        while(r < qr) add(a[++r]);
-        while(l < ql) del(a[l++]);
-        while(r > qr) del(a[r--]);
-        while(curT < t){
-            int pos = op[curT].p;
-            if(l <= pos && pos <= r){
-                del(a[pos]), add(op[curT].x);
-            }
-            swap(a[pos], op[curT].x);
-            curT++;
-        }
-        while(curT > t){
-            curT--;
-            int pos = op[curT].p;
-            if(l <= pos && pos <= r){
-                del(a[pos]), add(op[curT].x);
-            }     
-            swap(a[pos], op[curT].x);
-        }
-        ans[id] = res;
-    }
-    for(int i : ans) cout << i << '\n';
-
+    for (ll v : mo.solve()) cout << v << '\n';
 }
 ```
 
 ### 回滚莫队
 
 > 不删除莫队；P5906 区间最远重复位置。
+> 【10.22 结构体封装】原全局变量 + 全局函数改为结构体 / 传参函数，用法见块内速查卡。
 
 ```cpp
-#define int long long
-#define double long double
+using ll = long long;
 
-int n, q, B;
 // 【速查】回滚莫队（只加不删）
-// 用途: 信息只能方便地"加入"、难"删除"时（如区间最值类）。本例: 区间内相同数的最远距离（P5906）
-// 用法: 左端点同块的询问一起处理，右指针只右移，左边每次从块边界重新加入再回滚；同块内的小询问暴力
-// 复杂度: O(n√q)；下标 0-based，值先离散化
-struct Q{
-    int l, r, id;
-
-    bool operator<(const Q& b)const{
-        if(l / B != b.l / B) return l / B < b.l / B;
-        return r < b.r;
+// 用途: 信息只能方便地"加入"、难"删除"时（区间最值类）。本例: 区间内相同数的最远距离（P5906）
+// 用法: RollbackMo mo;  mo.a = 数组（0-based，值已离散化到 0..K-1）;  mo.init(K);
+//       auto res = mo.solve(qs);   // qs[i] = {l, r}（0-based 闭区间）
+// 做法: 左端点同块的询问按 r 升序一起处理：右指针只右移；左边每次从块的右边界往左加入，
+//       记下改动，答完后回滚；l、r 在同一块的小询问直接暴力
+// 改题: 改 init / addRight / addLeft / 回滚记录的内容 / brute
+// 复杂度: O(n√q)
+struct RollbackMo {
+    vector<int> a, fst, lst;                   // fst / lst: 当前区间内每个值第一次 / 最后一次出现的位置
+    void init(int K) { fst.assign(K, -1); lst.assign(K, -1); }
+    ll brute(int l, int r) {                   // 小区间暴力（用完复原）
+        ll best = 0;
+        vector<int> touched;
+        for (int j = l; j <= r; j++) {
+            int v = a[j];
+            if (fst[v] == -1) { fst[v] = j; touched.push_back(v); }
+            best = max(best, (ll)(j - fst[v]));
+        }
+        for (int v : touched) fst[v] = -1;
+        return best;
     }
-    Q(int l, int r, int id) : l(l), r(r), id(id) {}
+    vector<ll> solve(const vector<pair<int, int>>& qs) {
+        int n = a.size(), q = qs.size();
+        int B = max(1, (int)(n / sqrt(max(1.0, q * 2.0 / 3.0))));
+        vector<int> ord(q);
+        iota(ord.begin(), ord.end(), 0);
+        sort(ord.begin(), ord.end(), [&](int x, int y) {
+            if (qs[x].first / B != qs[y].first / B) return qs[x].first / B < qs[y].first / B;
+            return qs[x].second < qs[y].second;
+        });
+        vector<ll> ans(q);
+        int curBlock = -1, r = -1;
+        ll res = 0;
+        for (int id : ord) {
+            auto [ql, qr] = qs[id];
+            int b = ql / B;
+            if (b != curBlock) {                   // 换块：清空，右指针放到块的右边界
+                fill(fst.begin(), fst.end(), -1); fill(lst.begin(), lst.end(), -1);
+                res = 0; curBlock = b; r = (b + 1) * B - 1;
+            }
+            if (b == qr / B) { ans[id] = brute(ql, qr); continue; }
+            while (r < qr) {                       // 右边只加
+                int v = a[++r];
+                if (fst[v] == -1) fst[v] = r;
+                lst[v] = r;
+                res = max(res, (ll)(lst[v] - fst[v]));
+            }
+            ll saved = res;
+            vector<array<int, 3>> stk;             // (值, 旧 fst, 旧 lst)，用于回滚
+            for (int l = min(n, (b + 1) * B) - 1; l >= ql; l--) {
+                int v = a[l];
+                stk.push_back({v, fst[v], lst[v]});
+                if (lst[v] == -1) lst[v] = l;
+                fst[v] = l;
+                res = max(res, (ll)(lst[v] - fst[v]));
+            }
+            ans[id] = res;
+            res = saved;
+            while (!stk.empty()) { auto [v, f, l2] = stk.back(); stk.pop_back(); fst[v] = f; lst[v] = l2; }
+        }
+        return ans;
+    }
 };
 
-vector<int> a;
-vector<Q> ask;
-vector<int> fst, lst;
-vector<int> cnt(200005);
-
-void solve(){
+// 示例（P5906）: 读 n、n 个数、q、q 个询问（1-based），输出区间内相同数的最远距离
+void solve() {
+    int n;
     cin >> n;
-    a.resize(n);
-    fst.resize(n + 5, - 1);
-    lst.resize(n + 5, -1);
-    for(int i = 0; i < n; i++){
-        cin >> a[i];
-    }    
-    cin >> q;
-    B = max(1.0, n / sqrt(q * 2.0 / 3.0));
-    auto b = a;
+    RollbackMo mo;
+    mo.a.resize(n);
+    for (auto& x : mo.a) cin >> x;
+    vector<int> b = mo.a;
     sort(b.begin(), b.end());
     b.erase(unique(b.begin(), b.end()), b.end());
-    for(int i = 0; i < n; i++){
-        a[i] = lower_bound(b.begin(), b.end(), a[i]) - b.begin();
-    }
-    for(int i = 0; i < q; i++){
-        int x, y;
-        cin >> x >> y;
-        ask.push_back(Q(x - 1, y - 1, i));
-    }
-    sort(ask.begin(), ask.end());
-    vector<int> ans(q);
-    int lb = -1, r = -1, res = 0;
-    for(int i = 0; i < q; i++){
-        auto[ql, qr, id] = ask[i];
-        int cur = ql / B;
-
-        if(cur != lb){
-            fill(fst.begin(), fst.end(), -1);
-            fill(lst.begin(), lst.end(), -1);
-            res = 0;
-            lb = cur;
-            r = (cur + 1) * B - 1;
-        }
-        
-        if(cur == qr / B){
-            int temp = 0;
-            vector<int> wait;
-            for(int j = ql; j <= qr; j++){
-                int val = a[j];
-                if(fst[val] == -1){
-                    fst[val] = j;
-                    wait.push_back(val);
-                }
-                lst[val] = j;
-                temp = max(temp, j - fst[val]);
-            }
-            ans[id] = temp;
-            for(int val : wait){
-                fst[val] = -1;
-                lst[val] = -1;
-            }
-            continue;
-        }
-
-
-        while(r < qr){
-            r++;
-            int val = a[r];
-            if(fst[val] == -1) fst[val] = r;
-            lst[val] = r;
-            res = max(res, lst[val] - fst[val]);
-        }
-
-        int l = min(n, (cur + 1) * B);
-        int tmp = res;
-        stack<array<int,3>> wait;// val fst lst 
-        while(l > ql){
-            l--;
-            int val = a[l];
-            wait.push({val, fst[val], lst[val]});
-            if(lst[val] == -1) lst[val] = l;
-            fst[val] = l;
-            res = max(res, lst[val] - fst[val]);
-        }
-
-        ans[id] = res;
-        res = tmp;
-
-        while(wait.size()){
-            auto[val, l, r] = wait.top();
-            wait.pop();
-            fst[val] = l;
-            lst[val] = r; 
-        }
-
-    }
-
-    for(int i : ans) cout << i << '\n';
-
+    for (auto& x : mo.a) x = lower_bound(b.begin(), b.end(), x) - b.begin();
+    mo.init(b.size());
+    int q;
+    cin >> q;
+    vector<pair<int, int>> qs(q);
+    for (auto& [l, r] : qs) { cin >> l >> r; l--; r--; }
+    for (ll v : mo.solve(qs)) cout << v << '\n';
 }
 ```
 

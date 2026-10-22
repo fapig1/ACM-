@@ -1,96 +1,67 @@
-#include<bits/stdc++.h>
+#include <bits/stdc++.h>
 using namespace std;
-#define int long long
-
-const int inf=0x7fffffff;
-const int MAXN=505;
-
-int cnta,cntb;  //左部数量，右部数量
-int w[MAXN][MAXN];//边权，从左到右
+using ll = long long;
 
 // 【速查】KM 算法（二分图最大权完美匹配，BFS 版）
-// 用法: cnta = cntb = n；w[i][j] = 左 i 连右 j 的权（无边填 -inf）；ans = KM()
-// 返回: 最大权和；match[j] = 与右点 j 匹配的左点；返回值 < -5e14 表示不存在完美匹配
-// 最小权: 权取负，答案取 -KM()
+// 用法: KM km(n);  km.w[i][j] = 左 i 连右 j 的权（1-based，默认 KM::NO_EDGE 表示无边）;  ll ans = km.solve();
+// 返回: 最大权和；km.match[j] = 与右点 j 匹配的左点；返回值 < KM::NO_EDGE / 2 表示不存在完美匹配
+// 最小权: 权取负，答案取 -solve()；左右部规模不等时补虚点（权 0）补成方阵
 // 复杂度: O(n³)，n ≤ 500 没问题
-//以下套用板子不用更改
-// BFS 版 KM，O(n^3)。10.22 修复: 原版是 DFS 版，每次调整顶标后从头重新 DFS，
-//   最坏 O(n^4)：n=500、w[i][j]=i*j 实测 10s（P6577 这类卡 DFS-KM 的数据必 TLE）。
-// 约定: 1-based；左右部规模相等(cnta==cntb)；求最大权完美匹配。
-//   w[x][y] == -inf 表示无边，内部按极小权 NEG 处理；
-//   返回值 < NEG/2 说明不存在完美匹配（被迫用了"无边"）。
-// 原理: 维护顶标 la[x]+lb[y] >= w[x][y]，只走相等边。每轮从一个左部点出发，
+// 原理: 维护顶标 la[x] + lb[y] >= w[x][y]，只走相等边。每轮从一个左部点出发，
 //   像 Dijkstra 一样用 slack 记录未访问右部点的最小差值，每步把整棵交错树的顶标
-//   平移 d（树内相等边不变，树外 slack 减 d），O(n) 步找到增广路，总 O(n^3)。
-int la[MAXN],lb[MAXN];//顶标
-int match[MAXN];//match[y]: 与右部点 y 匹配的左部点（0 表示未匹配）
-int slk[MAXN],pre[MAXN];//slack 与交错树上的前驱右部点
-bool visb[MAXN];
+//   平移 d（树内相等边不变，树外 slack 减 d），O(n) 步找到增广路，总 O(n³)。
+// 10.22: 原 DFS 版最坏 O(n⁴)（n=500、w=i·j 实测 10s），已换成 BFS 版；本次再封装成结构体
+struct KM {
+    static constexpr ll NO_EDGE = -(ll)1e15;
+    int n;
+    vector<vector<ll>> w;
+    vector<int> match;                         // match[y]: 与右部点 y 匹配的左部点
 
-int KM() {//KM板子
-    const int NEG=-(int)1e15, BIG=(int)4e18;
-    int n=cnta;
-    auto W=[&](int x,int y){ return w[x][y]==-inf ? NEG : w[x][y]; };
-    for(int i=1; i<=n; i++){
-        la[i]=NEG;
-        for(int j=1; j<=n; j++) la[i]=max(la[i],W(i,j));
-    }
-    for(int j=0; j<=n; j++){ lb[j]=0; match[j]=0; }
-    for(int s=1; s<=n; s++){
-        for(int j=0; j<=n; j++){ visb[j]=false; slk[j]=BIG; pre[j]=0; }
-        int y=0;
-        match[0]=s;                      // 右部虚点 0 挂在起点 s 上
-        do{
-            visb[y]=true;
-            int x=match[y], ny=0, d=BIG;
-            for(int j=1; j<=n; j++){
-                if(visb[j]) continue;
-                int t=la[x]+lb[j]-W(x,j);
-                if(t<slk[j]){ slk[j]=t; pre[j]=y; }
-                if(slk[j]<d){ d=slk[j]; ny=j; }
-            }
-            for(int j=0; j<=n; j++){
-                if(visb[j]){ la[match[j]]-=d; lb[j]+=d; }
-                else slk[j]-=d;
-            }
-            y=ny;
-        }while(match[y]);                // 走到未匹配的右部点即找到增广路
-        while(y){ match[y]=match[pre[y]]; y=pre[y]; }   // 沿前驱翻转
-    }
-    int ans=0;
-    for(int i=1; i<=n; i++){
-        ans+=W(match[i],i);
-    }
-    return ans;
-}
+    KM(int n) : n(n), w(n + 1, vector<ll>(n + 1, NO_EDGE)), match(n + 1, 0) {}
 
-void solve(){
-    cin>>cnta;
-    cntb=cnta;
-    for(int i=1;i<=cnta;i++){
-        for(int j=1;j<=cntb;j++)
-        {
-            int in;
-            cin>>in;
-            w[i][j]=in;
+    ll solve() {
+        const ll BIG = LLONG_MAX / 4;
+        vector<ll> la(n + 1, NO_EDGE), lb(n + 1, 0), slk(n + 1);
+        vector<int> pre(n + 1);
+        vector<char> visb(n + 1);
+        for (int i = 1; i <= n; i++) for (int j = 1; j <= n; j++) la[i] = max(la[i], w[i][j]);
+        fill(match.begin(), match.end(), 0);
+        for (int s = 1; s <= n; s++) {
+            fill(visb.begin(), visb.end(), 0); fill(slk.begin(), slk.end(), BIG); fill(pre.begin(), pre.end(), 0);
+            int y = 0;
+            match[0] = s;                      // 右部虚点 0 挂在起点 s 上
+            do {
+                visb[y] = 1;
+                int x = match[y], ny = 0;
+                ll d = BIG;
+                for (int j = 1; j <= n; j++) {
+                    if (visb[j]) continue;
+                    ll t = la[x] + lb[j] - w[x][j];
+                    if (t < slk[j]) { slk[j] = t; pre[j] = y; }
+                    if (slk[j] < d) { d = slk[j]; ny = j; }
+                }
+                for (int j = 0; j <= n; j++) {
+                    if (visb[j]) { la[match[j]] -= d; lb[j] += d; }
+                    else slk[j] -= d;
+                }
+                y = ny;
+            } while (match[y]);                // 走到未匹配的右部点即找到增广路
+            while (y) { match[y] = match[pre[y]]; y = pre[y]; }   // 沿前驱翻转
         }
+        ll ans = 0;
+        for (int j = 1; j <= n; j++) ans += w[match[j]][j];
+        return ans;
     }
-    int det=KM();
-    /*
-        如果要求完美匹配的最小权，将边权取负数w[i][j]=-w[i][j]
-        最后答案输出-KM()即可
-    */
-    cout<<det<<"\n";
-}
+};
 
-signed main()
-{
+// 示例: 读 n 和 n×n 权值矩阵，输出最大权完美匹配
+int main() {
     ios::sync_with_stdio(false);
     cin.tie(0);
-
-    int t=1;
-    //cin>>t;
-    while(t--)solve();
-
+    int n;
+    cin >> n;
+    KM km(n);
+    for (int i = 1; i <= n; i++) for (int j = 1; j <= n; j++) cin >> km.w[i][j];
+    cout << km.solve() << "\n";
     return 0;
 }

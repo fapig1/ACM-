@@ -1,255 +1,96 @@
-#include<bits/stdc++.h>
-#define ll long long
-#define endl '\n'
+#include <bits/stdc++.h>
 using namespace std;
+using ll = long long;
 
-// 【速查】主席树（可持久化数组 / 可持久化线段树）
-// 用途: 每次操作基于某个历史版本：单点改、单点查（P3919）；Pseg 里附区间第 k 小写法
-// 用法: root[0] = build(1, 1, n);  root[i] = update(root[ver], 1, n, pos, v);  query(root[ver], 1, n, pos)
-//       只查询的操作也要 root[i] = root[ver]
-// 复杂度: 每次 O(log n) 时间 + O(log n) 新节点；节点池 N*25，大约 n + q·log n 个
-//https://www.luogu.com.cn/problem/P3919
-//主席树单点修改单点查询
+// 【速查】主席树（可持久化线段树）
+// 用途: ① 可持久化数组：基于任意历史版本单点改 / 单点查（P3919）
+//       ② 静态区间第 k 小：按前缀建权值线段树，两个版本相减（P3834）
+// 用法: PST t(预计节点数);   // 节点数 ≈ 2n + 更新次数 × (log n + 2)；只是 reserve，超了也能用（会扩容）
+//   ① int r0 = t.build(1, n, a);  int r1 = t.update(r0, 1, n, pos, v);  t.query(r1, 1, n, pos)
+//      每个版本就是一个根编号，自己用 vector<int> root 存；"只查询也生成新版本"时 root[i] = root[ver]
+//   ② 值离散化到 1..m；root[0] = 0（空树）；root[i] = t.insert(root[i-1], 1, m, id(a[i]));
+//      t.kth(root[l-1], root[r], 1, m, k) -> 第 k 小的离散化编号
+// 复杂度: 每次 O(log n) 时间 + O(log n) 个新节点
+// 10.22: 原版是全局 tree[N*25] 数组 + 全局函数（另有一份写在注释里的第 k 小），合并为一个结构体
+struct PST {
+    struct Node { int l, r; ll val; };       // val: ① 中为叶子的值，② 中为该值域区间的数的个数
+    vector<Node> t;
 
-const int N=1e6+5;
+    PST(int reserveNodes = 0) { t.reserve(reserveNodes + 1); t.push_back({0, 0, 0}); }   // 0 号为空节点
+    int clone(int u) { t.push_back(t[u]); return (int)t.size() - 1; }
 
-struct node{
-    int l,r;
-    ll val;
-}tree[N*25];
-//节点数按 (n + q·log n) 估计: n=1e6,q=1e6 时 ≈ 1e6+2e7 = 2.1e7, N*25=2.5e7 留有余量
-//原版 N*40 = 4e7 节点 × 16B = 640MB, 512MB 内存限制的评测机会 MLE
-
-vector<ll> vec(N);
-vector<int> root(N);//root表示第i个版本的根节点的index
-
-int top=0;
-//在更新操作时进行动态开点的函数
-int clone(int ind){
-    top++;
-    tree[top]=tree[ind];
-    return top;
-}
-
-//建树
-int build(int ind,int l,int r){
-    top++;
-    ind=top;
-
-    if(l==r){
-        tree[ind].val=vec[l];
-        return ind;
+    // ---- ① 可持久化数组 ----
+    int build(int l, int r, const vector<ll>& a) {   // a 为 1-based
+        int u = clone(0);
+        if (l == r) { t[u].val = a[l]; return u; }
+        int mid = (l + r) / 2;
+        int lc = build(l, mid, a), rc = build(mid + 1, r, a);
+        t[u].l = lc; t[u].r = rc;               // 先算完孩子再写，避免 push_back 扩容后引用失效
+        return u;
     }
-
-    int mid=(l+r)/2;
-    //实际上更新点可以有很多种方式，我使用的方式是为了统一更新建树和查询函数参数的格式
-    //build里面的第一个参数意义不大，为了统一参数那么写的，写一样的就行
-    tree[ind].l = build(tree[ind].l,l,mid);
-    tree[ind].r = build(tree[ind].r,mid+1,r);
-    return ind;
-}
-
-//更新
-int update(int ind,int l,int r,int t,ll v){
-    ind=clone(ind);
-
-    if(l==r){
-        tree[ind].val=v;
-        return ind;
+    int update(int u, int l, int r, int pos, ll v) {
+        int nu = clone(u);
+        if (l == r) { t[nu].val = v; return nu; }
+        int mid = (l + r) / 2;
+        if (pos <= mid) { int c = update(t[nu].l, l, mid, pos, v); t[nu].l = c; }
+        else { int c = update(t[nu].r, mid + 1, r, pos, v); t[nu].r = c; }
+        return nu;
     }
-    int mid=(l+r)/2;
-    if(t<=mid){
-        tree[ind].l=update(tree[ind].l,l,mid,t,v);
-    }else{
-        tree[ind].r=update(tree[ind].r,mid+1,r,t,v);
-    }
-    return ind;
-}
-
-//查询
-ll query(int ind,int l,int r,int t){
-    if(l==r){
-        return tree[ind].val; 
-    }
-
-    int mid=(l+r)/2;
-    if(t<=mid){
-        return query(tree[ind].l,l,mid,t);
-    }else{
-        return query(tree[ind].r,mid+1,r,t);
-    }
-}
-
-int n,q;
-void solve(){
-    cin>>n>>q;
-
-    for(int i = 1;i <= n;i ++){
-        cin>>vec[i];
-    }
-
-    root[0]=build(1,1,n);
-    for(int i=1;i<=q;i++){
-        int version;
-        int command;
-        cin>>version>>command;
-        if(command==1){
-            int t;
-            ll v;
-            cin>>t>>v;
-            root[i]=update(root[version],1,n,t,v);
-        }else{
-            int t;
-            cin>>t;
-            ll ans=query(root[version],1,n,t);
-            cout<<ans<<endl;
-            root[i]=root[version];
-        }
-
-    }
-
-}
-
-
-// 【速查】主席树（结构体封装版，含区间第 k 小）
-// 用法: PSeg pst;（放全局，别放栈上）  pst.root[0] = pst.build(0, 1, n, vec) 或 buildEmpty(0, 1, m)
-//       pst.root[i] = pst.update(pst.root[i-1], 1, n, pos, v);  pst.query(pst.root[ver], 1, n, pos)
-//       区间第 k 小: 打开注释里的 insert / queryKth，值先离散化，queryKth(root[l-1], root[r], 1, m, k)
-// 复杂度: 每次 O(log n)
-namespace Pseg{
-    const int N = 1e6 + 5;      // 版本数上限
-    const int M = N * 25;       // 节点数上限，按需调整
-
-    struct PSeg{
-        struct node{
-            int l, r;
-            ll val;             // 按题型可改成 cnt
-        }tree[M];
-
-        int root[N];            // root[i] 表示第 i 个版本的根
-        int top;                // 当前节点编号
-
-        PSeg(){
-            top = 0;
-        }
-
-        // 动态开点：复制旧节点，返回新节点编号
-        int clone(int t){
-            top++;
-            tree[top] = tree[t];
-            return top;
-        }
-
-        // 建树：带初值，建版本 0
-        // vec 是初始数组，下标从 1 开始
-        int build(int t, int l, int r, const vector<ll>& vec){
-            t = ++top;
-            if(l == r){
-                tree[t].val = vec[l];
-                return t;
-            }
+    ll query(int u, int l, int r, int pos) {
+        while (l < r) {
             int mid = (l + r) / 2;
-            tree[t].l = build(tree[t].l, l, mid, vec);
-            tree[t].r = build(tree[t].r, mid + 1, r, vec);
-            return t;
+            if (pos <= mid) u = t[u].l, r = mid;
+            else u = t[u].r, l = mid + 1;
         }
+        return t[u].val;
+    }
 
-        // 建空树：所有权值为 0
-        int buildEmpty(int t, int l, int r){
-            t = ++top;
-            tree[t].val = 0;
-            if(l == r) return t;
+    // ---- ② 静态区间第 k 小 ----
+    int insert(int u, int l, int r, int pos) {      // 值 pos 的个数 +1，返回新根
+        int nu = clone(u);
+        t[nu].val++;
+        if (l == r) return nu;
+        int mid = (l + r) / 2;
+        if (pos <= mid) { int c = insert(t[nu].l, l, mid, pos); t[nu].l = c; }
+        else { int c = insert(t[nu].r, mid + 1, r, pos); t[nu].r = c; }
+        return nu;
+    }
+    int kth(int u, int v, int l, int r, ll k) {     // 版本 v 减版本 u 的第 k 小
+        while (l < r) {
             int mid = (l + r) / 2;
-            tree[t].l = buildEmpty(tree[t].l, l, mid);
-            tree[t].r = buildEmpty(tree[t].r, mid + 1, r);
-            return t;
+            ll leftCnt = t[t[v].l].val - t[t[u].l].val;
+            if (k <= leftCnt) u = t[u].l, v = t[v].l, r = mid;
+            else k -= leftCnt, u = t[u].r, v = t[v].r, l = mid + 1;
         }
+        return l;
+    }
+};
 
-        // 单点修改：在 t 版本基础上，把位置 pos 改成 v
-        int update(int t, int l, int r, int pos, ll v){
-            t = clone(t);
-            if(l == r){
-                tree[t].val = v;
-                return t;
-            }
-            int mid = (l + r) / 2;
-            if(pos <= mid)
-                tree[t].l = update(tree[t].l, l, mid, pos, v);
-            else
-                tree[t].r = update(tree[t].r, mid + 1, r, pos, v);
-            return t;
-        }
-
-        // 单点查询：查询 t 版本中位置 pos 的值
-        ll query(int t, int l, int r, int pos){
-            if(l == r) return tree[t].val;
-            int mid = (l + r) / 2;
-            if(pos <= mid)
-                return query(tree[t].l, l, mid, pos);
-            else
-                return query(tree[t].r, mid + 1, r, pos);
-        }
-
-        // 针对于区间第K小问题的插入
-        // int insert(int t, int l, int r, int pos){
-        //     t = clone(t);
-        //     tree[t].val++;
-        //     if(l == r) return t;
-        //     int mid = (l + r) / 2;
-        //     if(pos <= mid)
-        //         tree[t].l = insert(tree[t].l, l, mid, pos);
-        //     else
-        //         tree[t].r = insert(tree[t].r, mid + 1, r, pos);
-        //     return t;
-        // }
-
-        // 针对于区间第K小问题的查询，返回ind
-        // int queryKth(int u, int v, int l, int r, int k){
-        //     if(l == r) return l;
-        //     int mid = (l + r) / 2;
-        //     int leftCnt = tree[tree[v].l].val - tree[tree[u].l].val;
-        //     if(k <= leftCnt)
-        //         return queryKth(tree[u].l, tree[v].l, l, mid, k);
-        //     else
-        //         return queryKth(tree[u].r, tree[v].r, mid + 1, r, k - leftCnt);
-        // }
-    };
-
-    // 第K小使用示例
-    // int n, q;
-    // vector<ll> a, vec;
-
-    // 放全局不会爆栈
-    // PSeg pst;
-
-    // void solve(){
-    //     // 快捷清空
-    //     pst.top=0;
-    
-    //     cin >> n >> q;
-    //     a.assign(n + 1, 0);
-    //     for(int i = 1; i <= n; i++){
-    //         cin >> a[i];
-    //         vec.push_back(a[i]);
-    //     }
-
-    //     sort(vec.begin(), vec.end());
-    //     vec.erase(unique(vec.begin(), vec.end()), vec.end());
-    //     int m = vec.size();
-
-    //     //这句话很关键！！！！！
-    //     pst.root[0] = pst.buildEmpty(0, 1, m);
-
-    //     for(int i = 1; i <= n; i++){
-    //         int pos = lower_bound(vec.begin(), vec.end(), a[i]) - vec.begin() + 1;
-    //         pst.root[i] = pst.insert(pst.root[i-1], 1, m, pos);
-    //     }
-
-    //     while(q--){
-    //         int l, r, k;
-    //         cin >> l >> r >> k;
-    //         int idx = pst.queryKth(pst.root[l-1], pst.root[r], 1, m, k);
-    //         cout << vec[idx - 1] << endl;
-    //     }
-    // }
+// 示例（P3919）: 读 n q 和初始数组；每个操作 "ver 1 pos v"（基于 ver 改值）或 "ver 2 pos"（查值）
+//   第 i 个操作生成版本 i（查询操作的新版本 = 原版本）
+void solve() {
+    int n, q;
+    cin >> n >> q;
+    vector<ll> a(n + 1);
+    for (int i = 1; i <= n; i++) cin >> a[i];
+    PST t(2 * n + q * (__lg(max(n, 1)) + 2));   // 建树 2n-1 个点 + 每次修改 ⌈log n⌉+1 个点
+    vector<int> root(q + 1);
+    root[0] = t.build(1, n, a);
+    for (int i = 1; i <= q; i++) {
+        int ver, op, pos;
+        cin >> ver >> op >> pos;
+        if (op == 1) { ll v; cin >> v; root[i] = t.update(root[ver], 1, n, pos, v); }
+        else { cout << t.query(root[ver], 1, n, pos) << '\n'; root[i] = root[ver]; }
+    }
 }
+
+// 第 k 小用法示例（P3834）:
+// void solveKth() {
+//     int n, q; cin >> n >> q;
+//     vector<ll> a(n + 1); for (int i = 1; i <= n; i++) cin >> a[i];
+//     vector<ll> vals(a.begin() + 1, a.end()); sort(vals.begin(), vals.end());
+//     vals.erase(unique(vals.begin(), vals.end()), vals.end()); int m = vals.size();
+//     PST t(n * 20); vector<int> root(n + 1, 0);
+//     for (int i = 1; i <= n; i++) root[i] = t.insert(root[i - 1], 1, m, lower_bound(vals.begin(), vals.end(), a[i]) - vals.begin() + 1);
+//     while (q--) { int l, r, k; cin >> l >> r >> k; cout << vals[t.kth(root[l - 1], root[r], 1, m, k) - 1] << '\n'; }
+// }

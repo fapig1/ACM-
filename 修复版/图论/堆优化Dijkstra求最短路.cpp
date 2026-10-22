@@ -1,61 +1,35 @@
 #include <bits/stdc++.h>
-#define int long long
-#define endl '\n'
 using namespace std;
-
-const int N = 1e5 + 5;
-const int mod = 80112002;
-int n, m, s;
-int x, y, z;
-vector<pair<int, int>>g[N];
-int dist[N];
-bool st[N];
+using ll = long long;
 
 // 【速查】堆优化 Dijkstra（稀疏图）
-// 用法: g[x].push_back({w, y});   // 注意这里是 {边权, 终点}，和其他最短路模板相反！
-// 返回: 1 到 n 的最短路，到不了返回 -1；dist[] 是到所有点的距离；边权必须非负
+// 用法: vector<vector<pair<int,ll>>> g(n + 1);  g[u].push_back({v, w});   // {终点, 边权}，与其他最短路模板一致
+//       auto d = dijkstra(n, g, s);   // d[v] = s 到 v 的最短路，到不了为 DIJ_INF；边权必须非负
 // 复杂度: O(m log m)
-//堆优化版dij,适用于稀疏图 O(m log m); 稠密图请用朴素 O(n^2) 版
-int dij()
-{
-    memset(dist, 0x3f, sizeof dist);
-    dist[1] = 0;
-    priority_queue<pair<int, int>, vector<pair<int, int>>, greater<pair<int, int>> > q;
-    q.push({ 0,1 });
-
-    while (!q.empty())
-    {
-        auto t = q.top();
-        q.pop();
-        int dis = t.first, idx = t.second;
-        if (st[idx]) continue;
-        st[idx] = true;
-        for (int i = 0; i < g[idx].size(); i++)
-        {
-            dist[g[idx][i].second] = min(dis + g[idx][i].first, dist[g[idx][i].second]);
-            q.push({ dist[g[idx][i].second] ,g[idx][i].second });
-        }
+// 10.22 改动: 原版存边是 {边权, 终点}，与其他模板相反，已统一为 {终点, 边权}
+const ll DIJ_INF = LLONG_MAX / 4;
+vector<ll> dijkstra(int n, const vector<vector<pair<int, ll>>>& g, int s) {
+    vector<ll> d(n + 1, DIJ_INF);
+    priority_queue<pair<ll, int>, vector<pair<ll, int>>, greater<>> pq;
+    d[s] = 0; pq.push({0, s});
+    while (!pq.empty()) {
+        auto [du, u] = pq.top(); pq.pop();
+        if (du != d[u]) continue;              // 过期的堆元素
+        for (auto [v, w] : g[u])
+            if (du + w < d[v]) { d[v] = du + w; pq.push({d[v], v}); }
     }
-
-    if (dist[n] == 0x3f3f3f3f3f3f3f3f) return -1;
-    else
-        return dist[n];
+    return d;
 }
 
-signed main() {
+// 示例: 读 n m 和 m 条边，输出 1 到 n 的最短路，到不了输出 -1
+int main() {
     ios::sync_with_stdio(false);
     cin.tie(0);
-    cout.tie(0);
-
+    int n, m;
     cin >> n >> m;
-    for (int i = 1; i <= m; i++)
-    {
-        cin >> x >> y >> z;
-        g[x].push_back({ z,y });
-    }
-
-    cout << dij();
-
-
+    vector<vector<pair<int, ll>>> g(n + 1);
+    for (int i = 0; i < m; i++) { int u, v; ll w; cin >> u >> v >> w; g[u].push_back({v, w}); }
+    auto d = dijkstra(n, g, 1);
+    cout << (d[n] >= DIJ_INF ? -1 : d[n]);
     return 0;
 }

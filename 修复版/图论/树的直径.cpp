@@ -1,52 +1,38 @@
 #include <bits/stdc++.h>
 using namespace std;
+using ll = long long;
 
-const int N = 200005;
-
-int n;
-vector<int> g[N];
-int dist[N];
-
-// 【速查】树的直径（两次 DFS）
-// 用法: s = get_far(1); t = get_far(s);  直径 = dist[t]，端点是 s、t
-// 注意: 边权非负才能用两次 DFS（有负边权用树形 DP）；本版无边权，有边权把 +1 改成 +w
-// 复杂度: O(n)；递归，深链注意爆栈
-void dfs(int u, int fa) {
-    for (int v : g[u]) {
-        if (v == fa) continue;
-        dist[v] = dist[u] + 1;
-        dfs(v, u);
+// 【速查】树的直径（两次 BFS，非递归）
+// 用法: vector<vector<pair<int,ll>>> g(n + 1);  g[u].push_back({v, w}); g[v].push_back({u, w});   // 点 1-based
+//       auto [len, s, t] = treeDiameter(n, g);   // 直径长度与两个端点
+// 注意: 边权必须非负（有负边权用树形 DP：每个点维护向下最长、次长链）；无边权就全部填 1
+// 复杂度: O(n)
+// 从 s 出发求到所有点的距离（树上 BFS 即可，不需要 Dijkstra）
+vector<ll> treeDist(int n, const vector<vector<pair<int, ll>>>& g, int s) {
+    vector<ll> d(n + 1, -1);
+    vector<int> q = {s};
+    d[s] = 0;
+    for (size_t i = 0; i < q.size(); i++) {
+        int u = q[i];
+        for (auto [v, w] : g[u]) if (d[v] < 0) { d[v] = d[u] + w; q.push_back(v); }
     }
+    return d;
+}
+tuple<ll, int, int> treeDiameter(int n, const vector<vector<pair<int, ll>>>& g) {
+    auto d1 = treeDist(n, g, 1);
+    int s = max_element(d1.begin() + 1, d1.end()) - d1.begin();
+    auto d2 = treeDist(n, g, s);
+    int t = max_element(d2.begin() + 1, d2.end()) - d2.begin();
+    return {d2[t], s, t};
 }
 
-int get_far(int start) {
-    memset(dist, 0, sizeof dist);
-    dfs(start, 0);
-
-    int far = start;
-    for (int i = 1; i <= n; i++) {
-        if (dist[i] > dist[far]) {
-            far = i;
-        }
-    }
-    return far;
-}
-
+// 示例: 读 n 和 n-1 条无权边，输出直径长度
 int main() {
+    int n;
     cin >> n;
-
-    for (int i = 1; i < n; i++) {
-        int u, v;
-        cin >> u >> v;
-        g[u].push_back(v);
-        g[v].push_back(u);
-    }
-
-    int s = get_far(1);
-    int t = get_far(s);
-
-    cout << dist[t] << '\n';
-
-
+    vector<vector<pair<int, ll>>> g(n + 1);
+    for (int i = 1; i < n; i++) { int u, v; cin >> u >> v; g[u].push_back({v, 1}); g[v].push_back({u, 1}); }
+    auto [len, s, t] = treeDiameter(n, g);
+    cout << len << '\n';
     return 0;
 }
