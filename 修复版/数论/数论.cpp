@@ -11,6 +11,7 @@ using namespace std;
 //   * 全局数组按 maxn = 1e6 开；linear_sieve 的内存约为 6 个 long long 数组，按题目缩小 maxn。
 //   * init 与 linear_sieve 都会向全局 primes 里 push，二者不要混用（否则质数表重复）。
 //   * 模数统一用全局 mod = 1e9+7；NTT 单独使用 NTT_MOD = 998244353。
+//   * 类欧的公式与变式推导见 数论恒等式.md 第 14 节。
 // =====================================================================
 
 //欧拉筛
@@ -797,32 +798,192 @@ struct Dujiao {
 // 实测耗时: n=1e9 约 27ms, n=1e10 约 135ms
 
 
-// 类欧几里得算法: 计算 Σ_{i=0}^{n-1} floor((a*i + b) / m)，O(log max(a,m))
-// 要求: n >= 0, m > 0, a >= 0, b >= 0（负数需先把 a,b 调整到非负）。
-// 思路:
-//   1) 先把 a >= m、b >= m 的整数部分拆出来（等差数列求和）；
-//   2) 剩下 0 <= a,b < m，把“对 i 求和”换成“对纵坐标 y 求和”，
-//      交换 n 与 m 的角色后递归，规模按欧几里得算法下降，故 O(log)。
-// 注意: 中间量 (n-1)*n/2*(a/m) 可能很大，n,a 到 1e9 时需 __int128；
-//       本实现用 long long（#define int long long），约可撑到 1e18 的结果。
-int floor_sum(int n, int m, int a, int b) {
-    int ans = 0;
-    if (a >= m) {
-        ans += (n - 1) * n / 2 * (a / m);
-        a %= m;
-    }
-    if (b >= m) {
-        ans += n * (b / m);
-        b %= m;
-    }
+// ============================== 类欧几里得（Euclidean-like） ==============================
+// 核心: 快速计算 f(n,m,a,b)=Σ_{i=0}^{n-1} floor((a*i+b)/m)，以及带权、平方、取模、
+//       上取整、负数、区间等变式。
+// 原理: 记 y_i=floor((a*i+b)/m)。当 0<=a,b<m 时，把“对 i 求和”换成“对 y 求和”
+//       （数格点/交换求和次序），问题递归成 (m,a) 的形式；每轮规模按欧几里得
+//       算法下降，因此 O(log max(a,m))。
+// 统一约定:
+//   * 下标 i=0..n-1；要求 n>=0，m>0。
+//   * 参数建议 n,m,a,b <= 1e18（m+a-1-b 等中间和需落在 long long 内）。
+//   * 未特别说明时 a,b>=0；负数请用 floor_sum_signed。
+//   * exact 版本内部用 __int128 承接中间量，返回值仍是 long long，答案本身需放得下。
+//   * 需要取模或 n 很大时用 floor_sum_mod / euclid3_mod。
+// =====================================================================================
 
-    int y_max = (a * n + b) / m;
-    int x_max = (y_max * m - b);
-    if (y_max == 0) return ans;
+// 基础版: f(n,m,a,b)=Σ_{i=0}^{n-1} floor((a*i+b)/m)，O(log max(a,m))
+// 要求 n>=0, m>0, a>=0, b>=0。
+// 做法:
+//   1) a>=m、b>=m 时先拆出整数部分（等差数列求和）；
+//   2) 0<=a,b<m 时交换求和次序，递归到 (n'=y_max, m'=a, a'=m, b'=...)。
+// 说明: 迭代写法，避免递归深度；中间量用 __int128。返回值是 long long，答案本身需放得下
+//       （大致要求 n^2*a/m <= 9e18；n,a 到 1e9 时安全，更大请用 floor_sum_mod）。
+// 验证: floor_sum(5,5,2,1)=3（i=0..4 的 floor 值为 0,0,1,1,1）。
+long long floor_sum(long long n, long long m, long long a, long long b) {
+    __int128 ans = 0;
+    while (true) {
+        if (a >= m) {
+            ans += (__int128)(n - 1) * n / 2 * (a / m);
+            a %= m;
+        }
+        if (b >= m) {
+            ans += (__int128)n * (b / m);
+            b %= m;
+        }
+        __int128 y = (__int128)a * n + b;
+        if (y < m) break;
+        n = (long long)(y / m);
+        b = (long long)(y % m);
+        swap(m, a);
+    }
+    return (long long)ans;
+}
 
-    ans += (n - (x_max + a - 1) / a) * y_max;
-    ans += floor_sum(y_max, a, m, (a - x_max % a) % a);
-    return ans;
+// 取模版: Σ_{i=0}^{n-1} floor((a*i+b)/m) mod mod，O(log max(a,m))
+// 适用于 n 很大（1e18）而只需要模值的场景；要求 mod>0，a,b>=0。
+// 注意: 每步都对 mod 取模，中间乘法用 __int128，避免 long long 溢出。
+long long floor_sum_mod(long long n, long long m, long long a, long long b, long long mod) {
+    __int128 ans = 0;
+    while (true) {
+        if (a >= m) {
+            __int128 s = (__int128)(n - 1) * n / 2 % mod;
+            ans = (ans + s * ((a / m) % mod)) % mod;
+            a %= m;
+        }
+        if (b >= m) {
+            ans = (ans + (__int128)n * ((b / m) % mod)) % mod;
+            b %= m;
+        }
+        __int128 y = (__int128)a * n + b;
+        if (y < m) break;
+        n = (long long)(y / m);
+        b = (long long)(y % m);
+        swap(m, a);
+    }
+    return (long long)ans;
+}
+
+// 上取整版: Σ_{i=0}^{n-1} ceil((a*i+b)/m)，要求 a,b>=0，m>0
+// 恒等式: ceil(x/m)=floor((x+m-1)/m)（x 为整数，m>0）。
+// 注意: 这里直接算 b+m-1，要求 b <= LLONG_MAX-(m-1)；否则先拆分 b 再分段。
+long long ceil_sum(long long n, long long m, long long a, long long b) {
+    return floor_sum(n, m, a, b + m - 1);
+}
+
+// 负数版: a,b 可为任意整数（m>0），计算 Σ_{i=0}^{n-1} floor((a*i+b)/m)
+// 做法: 做“向下取整”的带余除法 a=qa*m+ra, b=qb*m+rb（0<=ra,rb<m），
+//       则 floor((a*i+b)/m)=qa*i+qb+floor((ra*i+rb)/m)，前两项用等差公式。
+// 注意: 返回值需能放进 long long；中间量用 __int128，但 qa*n^2/2 过大时仍会溢出。
+long long floor_sum_signed(long long n, long long m, long long a, long long b) {
+    long long qa = a / m, ra = a % m;
+    if (ra < 0) { ra += m; qa--; }
+    long long qb = b / m, rb = b % m;
+    if (rb < 0) { rb += m; qb--; }
+    __int128 ans = (__int128)qa * n * (n - 1) / 2 + (__int128)qb * n
+                 + floor_sum(n, m, ra, rb);
+    return (long long)ans;
+}
+
+// 区间版: Σ_{i=l}^{r-1} floor((a*i+b)/m)，要求 0<=l<=r，a,b 可为任意整数
+// 原理: 前缀和相减；区间长度为 0 时返回 0。
+long long floor_sum_range(long long l, long long r, long long m, long long a, long long b) {
+    return floor_sum_signed(r, m, a, b) - floor_sum_signed(l, m, a, b);
+}
+
+// 三合一（exact）: 同时求
+//   f = Σ_{i=0}^{n-1} floor((a*i+b)/m)
+//   g = Σ_{i=0}^{n-1} i * floor((a*i+b)/m)
+//   h = Σ_{i=0}^{n-1} floor((a*i+b)/m)^2
+// 要求 n>=0, m>0, a,b>=0。
+// 递推（0<=a,b<m 时，令 y=floor((a(n-1)+b)/m)）:
+//   f = n*y - f'
+//   g = y*S1(n-1) - (h' - f')/2
+//   h = n*y^2 - 2g' - f'
+//   其中 f',g',h' 是参数 (y, a, m, m+a-1-b) 的子问题，S1(x)=x(x+1)/2。
+// exact 版用 __int128 存 f,g,h；h 增长很快（约 a^2 n^3/m^2），
+// n 很大时即使 __int128 也会溢出，此时请用 euclid3_mod。
+// 验证: euclid3(5,5,2,1) = {3,9,3}。
+struct Euclid3 {
+    __int128 f, g, h;
+};
+
+Euclid3 euclid3(long long n, long long m, long long a, long long b) {
+    if (n <= 0) return {0, 0, 0};
+    if (a >= m || b >= m) {
+        long long qa = a / m, qb = b / m;
+        Euclid3 t = euclid3(n, m, a % m, b % m);
+        __int128 nn = n;
+        __int128 s1 = nn * (n - 1) / 2;
+        __int128 s2 = nn * (n - 1) * (2 * nn - 1) / 6;
+        __int128 F = (__int128)qa * s1 + (__int128)qb * nn + t.f;
+        __int128 G = (__int128)qa * s2 + (__int128)qb * s1 + t.g;
+        __int128 H = (__int128)qa * qa * s2 + (__int128)qb * qb * nn + t.h
+                   + 2 * (__int128)qa * qb * s1 + 2 * (__int128)qa * t.g
+                   + 2 * (__int128)qb * t.f;
+        return {F, G, H};
+    }
+    long long y = (long long)(((__int128)a * (n - 1) + b) / m);
+    if (y == 0) return {0, 0, 0};
+    long long nb = (long long)((__int128)m + a - 1 - b);
+    Euclid3 t = euclid3(y, a, m, nb);
+    __int128 nn = n, yy = y;
+    __int128 s1 = nn * (n - 1) / 2;
+    __int128 F = nn * yy - t.f;
+    __int128 G = yy * s1 - (t.h - t.f) / 2;
+    __int128 H = nn * yy * yy - 2 * t.g - t.f;
+    return {F, G, H};
+}
+
+// 三合一（取模）: f,g,h 均对 mod 取模，要求 mod 为 >3 的质数（如 1e9+7）。
+// 适用于 n 到 1e18 的大范围；递推与 exact 版相同，除法用 inv2、inv3。
+// 注意: mod 不是质数或 <=3 时，2、3 不一定可逆，不能直接用本函数；
+//       mod 建议取 1e9 级（如 1e9+7），mod 接近 1e18 时中间乘积可能超过 __int128。
+struct Euclid3Mod {
+    long long f, g, h;
+};
+
+namespace euclid_detail {
+Euclid3Mod euclid3_mod_rec(long long n, long long m, long long a, long long b,
+                           long long mod, long long inv2, long long inv3) {
+    if (n <= 0) return {0, 0, 0};
+    if (a >= m || b >= m) {
+        long long qa = a / m, qb = b / m;
+        Euclid3Mod t = euclid3_mod_rec(n, m, a % m, b % m, mod, inv2, inv3);
+        long long nn = n % mod;
+        long long s1 = (long long)((__int128)nn * ((n - 1) % mod) % mod * inv2 % mod);
+        long long s2 = (long long)((__int128)s1 * ((2 * (__int128)n - 1) % mod) % mod * inv3 % mod);
+        long long qam = qa % mod, qbm = qb % mod;
+        long long F = (long long)(((__int128)qam * s1 + (__int128)qbm * nn + t.f) % mod);
+        long long G = (long long)(((__int128)qam * s2 + (__int128)qbm * s1 + t.g) % mod);
+        long long H = (long long)(((__int128)qam * qam % mod * s2
+                                 + (__int128)qbm * qbm % mod * nn
+                                 + t.h
+                                 + 2 * (__int128)qam % mod * qbm % mod * s1
+                                 + 2 * (__int128)qam % mod * t.g
+                                 + 2 * (__int128)qbm % mod * t.f) % mod);
+        return {F, G, H};
+    }
+    long long y = (long long)(((__int128)a * (n - 1) + b) / m);
+    if (y == 0) return {0, 0, 0};
+    long long nb = (long long)((__int128)m + a - 1 - b);
+    Euclid3Mod t = euclid3_mod_rec(y, a, m, nb, mod, inv2, inv3);
+    long long nn = n % mod, yy = y % mod;
+    long long s1 = (long long)((__int128)nn * ((n - 1) % mod) % mod * inv2 % mod);
+    long long F = (long long)(((__int128)nn * yy - t.f + mod) % mod);
+    long long G = (long long)(((__int128)yy * s1
+                              - (__int128)(t.h - t.f + mod) % mod * inv2 % mod
+                              + mod) % mod);
+    long long H = (long long)(((__int128)nn * yy % mod * yy
+                              - 2 * (__int128)t.g - t.f + 3 * mod) % mod);
+    return {F, G, H};
+}
+} // namespace euclid_detail
+
+Euclid3Mod euclid3_mod(long long n, long long m, long long a, long long b, long long mod) {
+    long long inv2 = (mod + 1) / 2;              // mod 为奇质数
+    long long inv3 = ksm(3, mod - 2, mod);       // 费马小定理
+    return euclid_detail::euclid3_mod_rec(n, m, a, b, mod, inv2, inv3);
 }
 
 // SOSDP（Sum Over Subsets）示例: O(n * 2^n) 求每个 mask 的子集权值和。
